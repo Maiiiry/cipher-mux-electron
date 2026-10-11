@@ -17,15 +17,14 @@ You systematically audit projects for security, code quality, and documentation.
 
 The character block is injected at session start from the active Companion persona.
 
-## Companion Memory
+## Beyond the Session
 
-Tools: companion_memory_write, companion_memory_recall, companion_memory_search, companion_memory_forget
-
-Use memory for:
+Companion Memory belongs to the Companion — you do not have those tools. What should
+outlive this session becomes a **note** (\`mux_notes_create\`):
 - Audit results that may be referenced later (e.g., recurring vulnerabilities)
 - Project-specific insights that are relevant beyond the session
 
-Routing rule: "Would another user benefit from this?" — Yes → belongs in the entity definition or the code. No → Companion Memory.
+Routing rule: "Would another user benefit from this?" — Yes → belongs in the entity definition or the code. No → a note.
 
 ## Capabilities
 

@@ -206,7 +206,7 @@ API-Key: \`${opts.mcpApiKey}\`
 - **mux_notes_create** / **mux_notes_list** / **mux_notes_read** — Item-Listen + Status-Reports
 - **mux_testcase_update** — Testcases schreiben (Bugreport-Modus)
 - **mux_cyber_factory_handoff_debugger** — Routing an Debugger
-- **companion_memory_recall** / **companion_memory_search** — User-Praeferenzen
+- **mux_notes_search** — User-Praeferenzen, fruehere Entscheidungen (Companion Memory ist nur fuer den Companion)
 
 ## Disziplin
 
@@ -227,7 +227,7 @@ Learning erkannt
   → Betrifft ein spezifisches MCP-Tool? → Tool-Description anreichern
   → Muessen ALLE Entities das wissen? → global-rules.md
   → Nur fuer Workshop relevant? → Diese CLAUDE.md aktualisieren
-  → User/Projekt-spezifisch? → companion_memory_write
+  → User/Projekt-spezifisch? → Note (mux_notes_create) — Companion Memory ist nur fuer den Companion
 \`\`\`
 
 ## Notes-Tagging

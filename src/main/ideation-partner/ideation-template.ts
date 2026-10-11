@@ -10,7 +10,7 @@ import * as os from 'os'
 const ENTITIES_DIR = path.join(os.homedir(), '.config/cipher-mux/entities')
 const IDEATION_DIR = path.join(ENTITIES_DIR, 'ideation-partner')
 const CLAUDE_MD_PATH = path.join(IDEATION_DIR, 'CLAUDE.md')
-const V2_MARKER = '<!-- ideation-partner-v2 -->'
+const V2_MARKER = '<!-- ideation-partner-v3 -->'
 
 export function isV2Template(): boolean {
   try {
@@ -58,11 +58,11 @@ offer skills, distill requirements packages for Refinement.
 **What you do not do:** Write detail specs (Refinement), write code (Cyber Factory),
 make architecture decisions.
 
-## Companion-Memory
+## Beyond the Session
 
-Tools: companion_memory_write, companion_memory_recall, companion_memory_search, companion_memory_forget
-
-Use Memory for:
+Companion Memory belongs to the Companion — you do not have those tools. What should
+outlive this session becomes a **note** (\`mux_notes_create\`), found again via
+\`mux_notes_search\`:
 - Project ideas and their evolution across sessions
 - User preferences during ideation
 - Substantive findings from research rounds
@@ -218,38 +218,38 @@ This session is NOT for:
 
 ## Notes-Tagging
 
-Tags are managed in \\\`~/.config/cipher-mux/notes/.tags.json\\\`. When creating notes via \\\`mux_notes_create\\\`, always include appropriate tags.
+Tags are managed in \`~/.config/cipher-mux/notes/.tags.json\`. When creating notes via \`mux_notes_create\`, always include appropriate tags.
 
 **Mandatory tags for Ideation Partner:**
-- \\\`kind:reference\\\` — for brain notes (research, seed, brief)
-- \\\`kind:requirements\\\` — for the final requirements package
-- \\\`entity:ideation-partner\\\` — origin tag
+- \`kind:reference\` — for brain notes (research, seed, brief)
+- \`kind:requirements\` — for the final requirements package
+- \`entity:ideation-partner\` — origin tag
 
-Optional tags: \\\`phase:research\\\`, \\\`phase:architecture\\\`.
+Optional tags: \`phase:research\`, \`phase:architecture\`.
 The skill used (pre-mortem, roundtable, future-backwards, OSS telescope) belongs in the note body — it is not a tag class.
 
-**Notes status maintenance:** On every note edit, update the \\\`status:\\\` tag: \\\`status:open\\\` → \\\`status:in-progress\\\` → \\\`status:done\\\`. No update without a matching status tag.
+**Notes status maintenance:** On every note edit, update the \`status:\` tag: \`status:open\` → \`status:in-progress\` → \`status:done\`. No update without a matching status tag.
 
 ## Lessons Learned
 
 When you recognize a learning (recurring problem, better approach, avoided mistake), decide on the correct storage level:
 
-\\\`\\\`\\\`
+\`\`\`
 Learning recognized
   ├─ Affects ALL entities? → global-rules.md (repo)
   ├─ Affects ONLY this entity? → Update this entity's CLAUDE.md
-  └─ Affects user/project? → companion_memory_write (scope: workspace/user)
-\\\`\\\`\\\`
+  └─ Affects user/project? → Note (mux_notes_create) — Companion Memory is Companion-only
+\`\`\`
 
 **Format:**
-\\\`\\\`\\\`
+\`\`\`
 LEARNING: [Short title]
 Date: YYYY-MM-DD
 Source: [Session ID or context]
 Level: global | entity | user | project
 What: [Description of the problem/insight]
 Rule: [Derived rule for the future]
-\\\`\\\`\\\`
+\`\`\`
 
 Propose entity-level learnings to the user — do not make CLAUDE.md changes autonomously.
 `

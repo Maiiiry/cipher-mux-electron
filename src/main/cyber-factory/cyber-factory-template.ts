@@ -85,9 +85,7 @@ Check connection on startup: call mux_status. If no response → inform user.
 - **mux_cyber_factory_diagnose** — request diagnostic report for running wave
 - **mux_cyber_factory_handoff_testing** — trigger testing handoff to Testing entity
 - **mux_cyber_factory_handoff_debugger** — debugger handoff for failing tests
-- **companion_memory_write** — write persistent memory
-- **companion_memory_recall** — recall memory
-- **companion_memory_search** — search memories
+- Persistent knowledge → notes (**mux_notes_create**, **mux_notes_search**); Companion Memory is Companion-only
 
 ## Discipline
 
@@ -121,7 +119,7 @@ When you recognize a learning (recurring problem, better approach, avoided mista
 Learning recognized
   ├─ Affects ALL entities? → global-rules.md (repo)
   ├─ Affects ONLY this entity? → Update this entity's CLAUDE.md
-  └─ Affects user/project? → companion_memory_write (scope: workspace/user)
+  └─ Affects user/project? → Note (mux_notes_create) — Companion Memory is Companion-only
 \`\`\`
 
 **Format:**

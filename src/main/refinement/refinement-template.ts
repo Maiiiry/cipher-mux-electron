@@ -10,7 +10,7 @@ import * as os from 'os'
 const ENTITIES_DIR = path.join(os.homedir(), '.config/cipher-mux/entities')
 const REFINEMENT_DIR = path.join(ENTITIES_DIR, 'refinement')
 const CLAUDE_MD_PATH = path.join(REFINEMENT_DIR, 'CLAUDE.md')
-const V2_MARKER = '<!-- refinement-v2 -->'
+const V2_MARKER = '<!-- refinement-v3 -->'
 
 /**
  * Check if the current CLAUDE.md is already v2.
@@ -73,14 +73,14 @@ hardwired detail spec for the Cyber Factory.
 
 **Rule of thumb:** You know *what* to build and *for whom*. The Cyber Factory knows *how*.
 
-## Companion-Memory
+## Beyond the Session
 
-Tools: companion_memory_write, companion_memory_recall, companion_memory_search, companion_memory_forget
-
-Use memory for:
+Companion Memory belongs to the Companion — you do not have those tools. What should
+outlive this session becomes a **note** (\`mux_notes_create\`), found again via
+\`mux_notes_search\`:
 - Project ideas and their evolution across sessions
 - User preferences during requirements elicitation
-- Intended use + license policy (Tags: verwendungszweck, lizenz-policy)
+- Intended use + license policy (also part of the detail spec, Phase 5)
 
 ## User Profile
 
@@ -144,7 +144,8 @@ What is the software being developed for?
 - Personal/hobby? More freedom, but documented
 - Internal? Less license pressure, but compliance depending on industry
 
-Result as companion memory with tags \`verwendungszweck\`, \`lizenz-policy\`.
+Record the result in the detail spec (section "Intended use & license policy") — it travels
+with the spec to the Cyber Factory.
 
 ### Phase 6 — Detail Spec with REQ-IDs
 
@@ -167,8 +168,8 @@ Format example:
 - [ ] Nach App-Neustart werden ungesendete Nachrichten zugestellt
 - [ ] Wenn Empfaenger nicht existiert, Nachricht 7 Tage halten
 
-**Tests:** \\\`tests/messagebus/persistence.test.ts\\\`
-**Off-Limits:** keine Schema-Aenderung ohne Migration in \\\`db/migrations/\\\`
+**Tests:** \`tests/messagebus/persistence.test.ts\`
+**Off-Limits:** keine Schema-Aenderung ohne Migration in \`db/migrations/\`
 \`\`\`
 
 Store under \`docs/specs/<subsystem>.md\`. Subsystem partitioning is preliminary —
@@ -236,38 +237,38 @@ This session is NOT for:
 
 ## Notes-Tagging
 
-Tags are managed in \\\`~/.config/cipher-mux/notes/.tags.json\\\`. When creating notes via \\\`mux_notes_create\\\`, always provide matching tags.
+Tags are managed in \`~/.config/cipher-mux/notes/.tags.json\`. When creating notes via \`mux_notes_create\`, always provide matching tags.
 
 **Required tags for Refinement:**
-- \\\`kind:spec\\\` — for detail specs with REQ-IDs
-- \\\`kind:research\\\` — for RE audit results
-- \\\`entity:refinement\\\` — origin tag
+- \`kind:spec\` — for detail specs with REQ-IDs
+- \`kind:research\` — for RE audit results
+- \`entity:refinement\` — origin tag
 
-Optional tags: \\\`phase:architecture\\\`, \\\`phase:research\\\`.
+Optional tags: \`phase:architecture\`, \`phase:research\`.
 The maturity of the requirements is read from the note body (requirements-parser), not from a tag.
 
-**Notes status maintenance:** On every note edit, update the \\\`status:\\\` tag: \\\`status:open\\\` → \\\`status:in-progress\\\` → \\\`status:done\\\`. No update without a matching status tag.
+**Notes status maintenance:** On every note edit, update the \`status:\` tag: \`status:open\` → \`status:in-progress\` → \`status:done\`. No update without a matching status tag.
 
 ## Lessons Learned
 
 When you recognize a learning (recurring problem, better approach, avoided mistake), decide on the right storage level:
 
-\\\`\\\`\\\`
+\`\`\`
 Learning recognized
   ├─ Affects ALL entities? → global-rules.md (repo)
   ├─ Affects ONLY this entity? → Update this entity's CLAUDE.md
-  └─ Affects user/project? → companion_memory_write (scope: workspace/user)
-\\\`\\\`\\\`
+  └─ Affects user/project? → Note (mux_notes_create) — Companion Memory is Companion-only
+\`\`\`
 
 **Format:**
-\\\`\\\`\\\`
+\`\`\`
 LEARNING: [Short title]
 Datum: YYYY-MM-DD
 Quelle: [Session-ID or context]
 Ebene: global | entity | user | projekt
 Was: [Description of the problem/insight]
 Regel: [Derived rule for the future]
-\\\`\\\`\\\`
+\`\`\`
 
 Entity-level learnings should be formulated as suggestions to the user — do not modify CLAUDE.md on your own.
 `

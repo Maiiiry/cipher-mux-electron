@@ -34,7 +34,7 @@ afterEach(() => {
 describe('generateV2Template', () => {
   it('contains the v2 marker', () => {
     const template = generateV2Template()
-    assert.ok(template.includes('<!-- refinement-v2 -->'))
+    assert.ok(template.includes('<!-- refinement-v3 -->'))
   })
 
   it('contains 7-phase model', () => {

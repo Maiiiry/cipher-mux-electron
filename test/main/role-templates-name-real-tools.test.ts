@@ -61,3 +61,21 @@ describe('Rollen-Anweisungen nennen nur echte Werkzeuge', () => {
     assert.deepEqual(phantoms, [])
   })
 })
+
+/**
+ * Companion-Memory gibt es nur fuer den Companion — der Server registriert die
+ * vier `companion_memory_*` fuer keine andere Rolle (`mcp/entity-header.ts`).
+ * Gemessen am 2026-10-11: neun Vorlagen anderer Rollen schickten trotzdem dorthin,
+ * meist im Lessons-Learned-Baum, Cyber Factory und Workshop sogar in der
+ * Werkzeugliste. Der Phantom-Test oben sieht das nicht: die Namen sind
+ * registriert, nur nicht fuer diese Rolle.
+ */
+describe('Companion-Memory nennen nur Companion-Inhalte', () => {
+  it('keine andere Rollen-Vorlage nennt companion_memory_*', () => {
+    const offenders = instructionSources()
+      .filter(f => !path.basename(f).includes('companion'))
+      .filter(f => /\bcompanion_memory_[a-z]+/.test(fs.readFileSync(f, 'utf-8')))
+      .map(f => path.relative(SRC, f))
+    assert.deepEqual(offenders, [])
+  })
+})

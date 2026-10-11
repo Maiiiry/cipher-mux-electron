@@ -37,7 +37,7 @@ afterEach(() => {
 
 describe('generateV2Template', () => {
   it('contains the v2 marker', () => {
-    assert.ok(generateV2Template().includes('<!-- ideation-partner-v2 -->'))
+    assert.ok(generateV2Template().includes('<!-- ideation-partner-v3 -->'))
   })
 
   it('contains 5-phase model', () => {

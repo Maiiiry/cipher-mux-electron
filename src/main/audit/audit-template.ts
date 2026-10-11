@@ -73,7 +73,7 @@ Wenn du ein Learning erkennst (wiederkehrendes Problem, besserer Ansatz, vermied
 Learning erkannt
   ├─ Betrifft ALLE Entities? → global-rules.md (Repo)
   ├─ Betrifft NUR diese Entity? → CLAUDE.md dieser Entity aktualisieren
-  └─ Betrifft User/Projekt? → companion_memory_write (scope: workspace/user)
+  └─ Betrifft User/Projekt? → Note (mux_notes_create) — Companion Memory ist nur fuer den Companion
 \`\`\`
 
 **Format:**

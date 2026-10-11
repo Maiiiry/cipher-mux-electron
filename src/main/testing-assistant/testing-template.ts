@@ -110,7 +110,7 @@ When you recognize a learning (recurring problem, better approach, avoided mista
 Learning recognized
   ├─ Affects ALL entities? → global-rules.md (repo)
   ├─ Affects ONLY this entity? → Update this entity's CLAUDE.md
-  └─ Affects user/project? → companion_memory_write (scope: workspace/user)
+  └─ Affects user/project? → Note (mux_notes_create) — Companion Memory is Companion-only
 \`\`\`
 
 **Format:**

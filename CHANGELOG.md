@@ -8,11 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Refinement und Ideation Partner hatten je zwei Vorlagen**, eine deutsche in `entity-content/`
+  (schrieb die `preset.md` beim ersten Start, steckte hinter „Vorlage übernehmen“) und eine
+  englische neben dem Sync-Code (ausgeliefert seit der EN-Vereinheitlichung im Mai). Korrekturen
+  landeten mal in der einen, mal in der anderen. Jetzt gibt es nur die englische; beide
+  Einstiegspunkte zeigen auf sie. Marker `v3`.
+- **Maskierte Backticks in drei ausgelieferten Vorlagen** (Refinement, Ideation Partner, Debugger,
+  zusammen 88 Stellen im Quelltext): `\`` statt `` ` `` — Codeblöcke, die keine waren. Am 2026-10-01 nur in der
+  deutschen Fassung behoben. Ein Test rendert jetzt alle Rollen-Vorlagen und prüft das.
+- **Acht Rollen-Vorlagen schickten zu `companion_memory_*`**, das der Server nur dem Companion
+  anbietet — meist im Lessons-Learned-Baum, Cyber Factory und Workshop in der Werkzeugliste.
+  Jetzt: Notes. Ein Test lässt den Namen nur noch in Companion-Inhalten zu.
 - **Companion- und Debugger-Vorlage tragen jetzt den Marker `v3`.** Die Korrekturen aus 0.12.4
   änderten den Inhalt, nicht die Nummer — der Preset-Editor meldete eine alte `preset.md` deshalb
-  als „aktuell“. Refinement und Ideation Partner bleiben bei `v2`: dort gibt es zwei Vorlagen
-  (deutsch in `entity-content/`, englisch in `refinement/` bzw. `ideation-partner/`), ausgeliefert
-  wird die englische, und der Knopf „Vorlage übernehmen“ würde die deutsche schreiben.
+  als „aktuell“.
 
 ## [0.12.4] — 2026-10-10
 

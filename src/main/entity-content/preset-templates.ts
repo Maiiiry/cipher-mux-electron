@@ -12,8 +12,7 @@
  */
 
 import { generateCompanionClaudeMd } from './companion-preset'
-import { generateRefinementClaudeMd } from './refinement-preset'
-import { generateIdeationPartnerClaudeMd } from './ideation-partner-preset'
+import { generateRefinementClaudeMd, generateIdeationPartnerClaudeMd } from './index'
 import { generateDebuggerClaudeMd } from '../debugger/debugger-template'
 
 export const PRESET_TEMPLATES: Readonly<Record<string, () => string>> = {
