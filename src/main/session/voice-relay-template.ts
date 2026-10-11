@@ -8,7 +8,6 @@
 
 import {
   userProfileBlock,
-  companionMemoryBlock,
   guideRoutingBlock,
   learningPathsBlock,
 } from '../entity-content/shared-companion-blocks';
@@ -65,7 +64,14 @@ Announce tool calls:
 
 ${userProfileBlock()}
 
-${companionMemoryBlock()}
+## Beyond the Session
+
+Companion Memory belongs to the Companion — the server does not give you those tools, even
+though you share its persona. Your continuity across sessions is \`user-profile.json\` (learning
+progress) and **notes**: when the user refers to something from an earlier session, search with
+\`mux_notes_search\` before asking back; what should outlive this session becomes a note
+(\`mux_notes_create\`). If something belongs in the Companion's memory, say so — the user can
+tell the Companion.
 
 ${guideRoutingBlock()}
 

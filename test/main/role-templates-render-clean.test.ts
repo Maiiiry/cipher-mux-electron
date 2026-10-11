@@ -16,6 +16,7 @@ import { generateTestingAssistantClaudeMd } from '../../src/main/testing-assista
 import { generateWorkshopClaudeMd } from '../../src/main/workshop/workshop-template'
 import { generateCyberFactoryClaudeMd } from '../../src/main/cyber-factory/cyber-factory-template'
 import { generateAuditClaudeMd } from '../../src/main/audit/audit-template'
+import { generateVoiceRelayClaudeMd } from '../../src/main/session/voice-relay-template'
 
 const mcp = { mcpHost: '127.0.0.1', mcpPort: 3100, mcpApiKey: 'k' }
 const rendered: Record<string, () => string> = {
@@ -27,12 +28,30 @@ const rendered: Record<string, () => string> = {
   workshop: () => generateWorkshopClaudeMd(mcp),
   'cyber-factory': () => generateCyberFactoryClaudeMd(mcp),
   audit: generateAuditClaudeMd,
+  'voice-relay': generateVoiceRelayClaudeMd,
 }
 
 describe('Rollen-Anweisungen: keine maskierten Backticks', () => {
   for (const [name, gen] of Object.entries(rendered)) {
     it(name, () => {
       const lines = gen().split('\n').filter(l => l.includes('\\`'))
+      assert.deepEqual(lines, [])
+    })
+  }
+})
+
+/**
+ * Geprueft wird das Gerenderte, nicht der Quelltext: Voice-Relay setzt sich aus
+ * Bausteinen zusammen, die in `shared-companion-blocks.ts` stehen. Ein Test, der
+ * Dateien mit „companion" im Namen ausnimmt, sah deshalb nicht, dass Voice-Relay
+ * beim Start `companion_memory_recall` rufen sollte — ein Werkzeug, das der
+ * Server ihm nicht gibt (`mayUseCompanionMemory`). Gefunden am 2026-10-11.
+ */
+describe('Rollen-Anweisungen: Companion-Memory nur fuer den Companion', () => {
+  for (const [name, gen] of Object.entries(rendered)) {
+    if (name === 'companion') continue
+    it(name, () => {
+      const lines = gen().split('\n').filter(l => /\bcompanion_memory_[a-z]+/.test(l))
       assert.deepEqual(lines, [])
     })
   }
