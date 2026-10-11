@@ -1,4 +1,4 @@
-# Architecture (v0.12.5)
+# Architecture (v0.12.6)
 
 This document describes the high-level architecture of cipher-mux. It is intended for contributors who want to understand the codebase before making changes.
 
@@ -8,7 +8,7 @@ If you want to build a new adapter, see [CONTRIBUTING.md](CONTRIBUTING.md#writin
 
 cipher-mux is an Electron application with a classic two-process architecture: a **main process** (Node.js) that manages tmux sessions, a SQLite database, an MCP server, and all system integrations; and a **renderer process** (Preact) that displays the terminal grid, chatroom, and cockpit UI.
 
-As of v0.12.5 the system supports **12 roles** (Workshop, Cyber Factory, Local Cyber Factory, Local Worker, Launcher, Companion, Refinement, Ideation Partner, Voice Relay, Audit, Debugger, Testing Assistant) that replace the old persona-based session model. The MCP server registers **68 tools** in twelve categories, covering session management, message bus, tasks, notes, companion memory, voice, grid navigation, UI choreography, handoffs, and more. Key subsystems added since v0.9.6 include:
+As of v0.12.6 the system supports **12 roles** (Workshop, Cyber Factory, Local Cyber Factory, Local Worker, Launcher, Companion, Refinement, Ideation Partner, Voice Relay, Audit, Debugger, Testing Assistant) that replace the old persona-based session model. The MCP server registers **68 tools** in twelve categories, covering session management, message bus, tasks, notes, companion memory, voice, grid navigation, UI choreography, handoffs, and more. Key subsystems added since v0.9.6 include:
 
 - **Companion memory store** — per-entity SQLite FTS5 memory with recall/search/forget via MCP.
 - **Notes system** — full CRUD + search + Ollama auto-tagging, exposed as MCP tools (`mux_notes_*`).
@@ -23,7 +23,7 @@ Communication between main and renderer flows through typed IPC channels defined
 
 ```
 +---------------------------------------------------------------------+
-|                       Electron App (v0.12.5)                          |
+|                       Electron App (v0.12.6)                          |
 |                                                                      |
 |  +---------------------------------------------------------------+  |
 |  |                    Main Process                                |  |

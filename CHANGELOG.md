@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.6] — 2026-10-11
+
+### Fixed
+- **Voice-Relay sollte beim Start `companion_memory_recall` rufen** — ein Werkzeug, das der Server
+  ihm seit der Begrenzung auf den Companion nicht gibt. Die Anweisung kam aus dem gemeinsamen
+  Baustein `companionMemoryBlock`. Voice-Relay nutzt jetzt `user-profile.json` und Notes.
+- Der Test „Companion-Memory nur für den Companion“ prüft jetzt die **gerenderten** Anweisungen
+  jeder Rolle statt des Quelltexts — er hatte Dateien mit „companion“ im Namen ausgenommen und
+  den gemeinsamen Baustein deshalb nicht gesehen.
+
 ## [0.12.5] — 2026-10-11
 
 ### Fixed
