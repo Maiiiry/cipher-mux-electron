@@ -44,9 +44,44 @@ export function loadRespellings(voiceModelDir: string, voiceId: string): Respell
   return map
 }
 
-/** Invalidate the cached map for a voice (called when the active voice changes). */
+// Marker flag cache keyed by voice id.
+const normalizeFlagCache = new Map<string, boolean>()
+
+/**
+ * Whether a voice requires punctuation normalization before respellings.
+ * A voice opts in with an (empty) `normalize-punct.flag` file in its model dir.
+ * Never throws; missing/unreadable → false (voice stays untouched).
+ */
+export function loadNormalizeFlag(voiceModelDir: string, voiceId: string): boolean {
+  const cached = normalizeFlagCache.get(voiceId)
+  if (cached !== undefined) return cached
+  let flag = false
+  try {
+    flag = fs.existsSync(path.join(voiceModelDir, 'normalize-punct.flag'))
+  } catch {
+    flag = false
+  }
+  normalizeFlagCache.set(voiceId, flag)
+  return flag
+}
+
+/** Invalidate the cached map and flag for a voice (called when the active voice changes). */
 export function invalidateRespellings(voiceId: string): void {
   cache.delete(voiceId)
+  normalizeFlagCache.delete(voiceId)
+}
+
+/**
+ * Punctuation normalization, mirrors cipher-voice `transcript.normalize_for_piper`
+ * (training text and inference must match): typographic quotes are dropped,
+ * a trailing ellipsis becomes ".", any other ellipsis becomes "; ".
+ * Em/en dashes stay (piper_phonemize handles them itself).
+ */
+export function normalizeForPiper(text: string): string {
+  text = text.replace(/[„“”"«»]/g, '')
+  text = text.replace(/\s*(?:…|\.{3})\s*$/, '.')
+  text = text.replace(/\s*(?:…|\.{3})\s*/g, '; ')
+  return text.replace(/\s{2,}/g, ' ').trim()
 }
 
 /**

@@ -12,7 +12,10 @@ import { fork, type ChildProcess, execFileSync } from 'node:child_process'
 import { TTSEngine } from './tts-engine'
 import { pcmToWav } from './audio-utils'
 import { configStore } from '../config/config-store'
-import { loadRespellings, applyRespellings, invalidateRespellings, type RespellingMap } from './respellings'
+import {
+  loadRespellings, applyRespellings, invalidateRespellings, loadNormalizeFlag, normalizeForPiper,
+  type RespellingMap,
+} from './respellings'
 
 const DEFAULT_VOICE = 'de_DE-cipher_reachy3-medium'
 
@@ -108,6 +111,7 @@ export class PiperTTS extends TTSEngine {
   private ready = false
   private _interrupted = false
   private respellings: RespellingMap | null = null
+  private normalizePunct = false
   private pendingMessages = new Map<string, {
     resolve: (msg: WorkerMessage) => void
     reject: (err: Error) => void
@@ -146,6 +150,8 @@ export class PiperTTS extends TTSEngine {
 
     // Load per-voice pronunciation respellings (optional; absent → no-op).
     this.respellings = loadRespellings(modelDir, this.voice)
+    // Voices trained on normalized punctuation opt in via normalize-punct.flag.
+    this.normalizePunct = loadNormalizeFlag(modelDir, this.voice)
 
     // 3. Fork the worker under system Node.js
     let workerPath = path.join(__dirname, 'piper-worker.js')
@@ -254,6 +260,15 @@ export class PiperTTS extends TTSEngine {
     this.ready = true
   }
 
+  /**
+   * Text prep before phonemization: punctuation normalization (only for voices
+   * with normalize-punct.flag), then per-voice respellings. Order matters.
+   */
+  prepareText(text: string): string {
+    if (this.normalizePunct) text = normalizeForPiper(text)
+    return applyRespellings(text, this.respellings)
+  }
+
   async *speak(text: string): AsyncGenerator<Buffer> {
     if (!this.ready || !this.worker) {
       throw new Error('PiperTTS not initialized — call init() first')
@@ -262,7 +277,7 @@ export class PiperTTS extends TTSEngine {
     this._interrupted = false
 
     // Apply per-voice pronunciation respellings before phonemization (no-op if none).
-    text = applyRespellings(text, this.respellings)
+    text = this.prepareText(text)
 
     // Split text into sentences
     const sentences = text.match(/[^.!?]+[.!?]*\s*/g)
@@ -313,7 +328,7 @@ export class PiperTTS extends TTSEngine {
     if (this._interrupted) return null
 
     // Apply per-voice pronunciation respellings before phonemization (no-op if none).
-    const trimmed = applyRespellings(text.trim(), this.respellings)
+    const trimmed = this.prepareText(text.trim())
     if (!trimmed) return null
 
     const id = `tts-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -354,6 +369,7 @@ export class PiperTTS extends TTSEngine {
     // Invalidate cached respellings so a re-init re-reads from disk.
     invalidateRespellings(this.voice)
     this.respellings = null
+    this.normalizePunct = false
 
     if (!this.worker) return
 
