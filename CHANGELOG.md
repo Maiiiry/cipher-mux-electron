@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.7] — 2026-10-11
+
+### Fixed
+- **Reste alter Texte im Terminal, unten an der Statusleiste** — nach dem App-Start oder einem
+  Breitenwechsel blieben Fragmente alter Dialoge und eine doppelte Statuszeile stehen, und der
+  Bereich baute sich nicht mehr sauber neu auf. tmux hatte die ganze Zeit den richtigen
+  Bildschirm. Der Neuaufbau aus dem tmux-Schnappschuss ließ den Cursor am Textende stehen statt
+  dort, wo tmux ihn hat, und verlor die leeren Zeilen am Bildschirmende (`trim()`). Claude Code
+  malt relativ zum Cursor und landete deshalb zu tief. Jetzt kommen Inhalt und Cursor in einem
+  tmux-Aufruf (`terminal.snapshot`), und `buildRestoreSequence` setzt den Cursor zurück.
+
 ## [0.12.6] — 2026-10-11
 
 ### Fixed
