@@ -9,7 +9,7 @@ import type { ThemeName } from '../../shared/grid-types'
 import type { TerminalThemeColors } from '../../shared/terminal-theme'
 import { registerTerminal, unregisterTerminal, setMarker, clearAllTextureAtlases } from '../terminal-registry'
 import { getTerminalFontSize } from '../a11y/terminal-font-size'
-import { RESYNC_SCROLLBACK_LINES, needsReflowResync } from '../../shared/terminal-resync'
+import { RESYNC_SCROLLBACK_LINES, needsReflowResync, buildRestoreSequence } from '../../shared/terminal-resync'
 
 const api = () => window.cipherMux
 
@@ -148,11 +148,13 @@ export function useTerminal(sessionId: string, theme: ThemeName = 'cipher-ivory'
       const wasAtBottom = buf.viewportY >= buf.baseY
       const savedViewportY = buf.viewportY
 
-      api().terminal.capture(sessionId, RESYNC_SCROLLBACK_LINES).then((content: string) => {
+      api().terminal.snapshot(sessionId, RESYNC_SCROLLBACK_LINES).then((snap) => {
         if (!term || !termRef.current) return
-        if (content?.trim()) {
+        if (snap.content.trim()) {
           term.reset()
-          term.write(content.replace(/\n/g, '\r\n'), () => {
+          // Mit Cursor und ungekuerzt -- sonst malt Claude Code den naechsten Zug
+          // zu tief, siehe `buildRestoreSequence`.
+          term.write(buildRestoreSequence(snap), () => {
             // T-BF.1: Restore scroll position instead of always jumping to bottom
             if (wasAtBottom) {
               term.scrollToBottom()
@@ -522,10 +524,10 @@ export function useTerminal(sessionId: string, theme: ThemeName = 'cipher-ivory'
             // 2026-10-02 nach dem App-Start ueberhaupt keine Historie, weil hier
             // derselbe sichtbare Bereich in einen zuruckgesetzten Puffer geschrieben
             // wurde wie im Resync.
-            api().terminal.capture(sessionId, RESYNC_SCROLLBACK_LINES).then((content: string) => {
-              if (content?.trim() && term) {
+            api().terminal.snapshot(sessionId, RESYNC_SCROLLBACK_LINES).then((snap) => {
+              if (snap.content.trim() && term) {
                 term.reset()
-                term.write(content.replace(/\n/g, '\r\n'), () => {
+                term.write(buildRestoreSequence(snap), () => {
                   term.scrollToBottom()
                   try { term.refresh(0, term.rows - 1) } catch { /* ignore */ }
                   // Final fit to catch any dimension drift

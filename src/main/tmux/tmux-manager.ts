@@ -4,6 +4,7 @@ import { EventEmitter } from 'events'
 import { TmuxParser, TmuxEvent } from './tmux-parser'
 import { OutputBatcher } from './output-batcher'
 import { runCommand } from '../util/exec-util'
+import { parsePaneSnapshot, type PaneSnapshot } from '../../shared/terminal-resync'
 
 export interface TmuxSessionInfo {
   id: string
@@ -449,6 +450,23 @@ export class TmuxManager extends EventEmitter {
       args.push('-S', String(-lines))
     }
     return runCommand('tmux', args)
+  }
+
+  /**
+   * Schnappschuss fuer den Neuaufbau im Renderer: Inhalt **ungekuerzt** plus
+   * Cursorposition, in **einem** tmux-Aufruf — dazwischen kann also keine
+   * Ausgabe den Cursor verschieben. Flags wie `capturePane` (`-J` siehe dort).
+   * Warum Cursor und leere Zeilen zaehlen: `shared/terminal-resync.ts`.
+   */
+  async snapshotPane(target: string, lines?: number): Promise<PaneSnapshot> {
+    const capture = ['capture-pane', '-t', target, '-p', '-e', '-J']
+    if (lines) capture.push('-S', String(-lines))
+    const raw = await runCommand(
+      'tmux',
+      ['display-message', '-t', target, '-p', '#{cursor_x} #{cursor_y}', ';', ...capture],
+      { trim: false },
+    )
+    return parsePaneSnapshot(raw)
   }
 
   /**

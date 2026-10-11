@@ -104,7 +104,7 @@ describe('RESYNC_SCROLLBACK_LINES haengt an xterms Scrollback', () => {
 })
 
 describe('die Aufrufstellen geben die Tiefe mit', () => {
-  it('jedes terminal.capture in useTerminal traegt RESYNC_SCROLLBACK_LINES', () => {
+  it('jeder Schnappschuss in useTerminal traegt RESYNC_SCROLLBACK_LINES', () => {
     // Das war der unsichtbare Teil des Defekts: der Parameter existierte auf dem
     // ganzen Weg — `capturePane(target, lines)`, `lines` im IPC-Handler — und wurde
     // vom Renderer nur nie mitgegeben. Ein Aufruf ohne zweites Argument sieht
@@ -113,7 +113,7 @@ describe('die Aufrufstellen geben die Tiefe mit', () => {
     // Stelle laesst sich ohne DOM nicht ausfuehren, aber lesen laesst sie sich.
     const file = path.join(__dirname, '../../src/renderer/hooks/useTerminal.ts')
     const src = readFileSync(file, 'utf-8')
-    const calls = [...src.matchAll(/terminal\.capture\(([^)]*)\)/g)]
+    const calls = [...src.matchAll(/terminal\.snapshot\(([^)]*)\)/g)]
     assert.ok(calls.length >= 2, `erwartet: mindestens zwei Aufrufe, waren ${calls.length}`)
     for (const [ganz, args] of calls) {
       assert.match(

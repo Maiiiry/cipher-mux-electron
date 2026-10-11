@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { IPC } from '../shared/ipc-channels'
 import type { Persona, Character, Workspace } from '../shared/types'
+import type { PaneSnapshot } from '../shared/terminal-resync'
 
 /**
  * Preload script — exposes window.cipherMux API via contextBridge.
@@ -77,6 +78,9 @@ const api = {
       ipcRenderer.invoke(IPC.TERMINAL_SPLIT, { paneId, direction }),
     capture: (paneId: string, lines?: number) =>
       ipcRenderer.invoke(IPC.TERMINAL_CAPTURE, { paneId, lines }),
+    /** Inhalt samt Cursor — fuer den Neuaufbau mit `buildRestoreSequence`. */
+    snapshot: (paneId: string, lines?: number): Promise<PaneSnapshot> =>
+      ipcRenderer.invoke(IPC.TERMINAL_SNAPSHOT, { paneId, lines }),
     ready: (paneId: string, cols: number, rows: number) =>
       ipcRenderer.send(IPC.TERMINAL_READY, { paneId, cols, rows }),
     onData: (cb: (data: { paneId: string; data: string }) => void) => {

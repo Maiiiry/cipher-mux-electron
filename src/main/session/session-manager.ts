@@ -55,6 +55,7 @@ import {
 const ENTITIES_ROOT = path.join(os.homedir(), '.config', 'cipher-mux', 'entities')
 import type { WorkspaceSectionSource } from './folder-session'
 import { generateLocalFactoryPreset, generateLocalWorkerPreset, LOCAL_WORKER_DISPATCH_TOOL } from '../local-factory/presets'
+import type { PaneSnapshot } from '../../shared/terminal-resync'
 
 /**
  * Generate the ## Voice Output section content based on ttsLevel.
@@ -918,6 +919,14 @@ export class SessionManager extends EventEmitter {
     if (!session) throw new Error(`Session ${sessionId} not found`)
     const target = session.tmuxPane ?? session.tmuxSession
     return this.tmux.capturePane(target, lines)
+  }
+
+  /** Schnappschuss samt Cursor fuer den Neuaufbau im Renderer. */
+  async snapshot(sessionId: string, lines?: number): Promise<PaneSnapshot> {
+    const session = this.sessions.get(sessionId)
+    if (!session) throw new Error(`Session ${sessionId} not found`)
+    const target = session.tmuxPane ?? session.tmuxSession
+    return this.tmux.snapshotPane(target, lines)
   }
 
   // ─── Adapter ──────────────────────────────────────────

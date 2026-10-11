@@ -63,3 +63,54 @@ export interface TerminalSize {
 export function needsReflowResync(prev: TerminalSize, next: TerminalSize): boolean {
   return prev.cols !== next.cols
 }
+
+/**
+ * Was der Neuaufbau aus tmux braucht: der Inhalt **ungekürzt** und die
+ * Cursorposition im sichtbaren Bereich (0-basiert, wie tmux sie meldet).
+ *
+ * Beides fehlte bis zum 2026-10-11. `runCommand` schneidet die Ausgabe mit
+ * `trim()`, die leeren Zeilen am Ende des Bildschirms gingen also verloren und der
+ * Inhalt rutschte um genau so viele Zeilen nach unten. Und nach dem Schreiben stand
+ * der Cursor am Ende des Texts statt dort, wo tmux ihn hat. Claude Code malt
+ * relativ zum Cursor („n Zeilen hoch, löschen, neu schreiben“) — der nächste
+ * Neuzeichnen-Zug landete zu tief, und darüber blieben Reste alter Dialoge und
+ * eine doppelte Statuszeile stehen. tmux selbst hatte die ganze Zeit den
+ * richtigen Bildschirm.
+ */
+export interface PaneSnapshot {
+  content: string
+  cursorX: number
+  cursorY: number
+}
+
+/**
+ * Liest die Ausgabe von `display -p '#{cursor_x} #{cursor_y}' ; capture-pane -p`:
+ * erste Zeile der Cursor, danach der Inhalt mit genau einem Zeilenwechsel pro
+ * Zeile — der letzte davon gehört zu keiner Zeile mehr und fällt weg.
+ */
+export function parsePaneSnapshot(raw: string): PaneSnapshot {
+  const nl = raw.indexOf('\n')
+  const head = nl === -1 ? raw : raw.slice(0, nl)
+  let content = nl === -1 ? '' : raw.slice(nl + 1)
+  if (content.endsWith('\n')) content = content.slice(0, -1)
+  const [x, y] = head.trim().split(/\s+/).map(Number)
+  return {
+    content,
+    cursorX: Number.isFinite(x) ? x : 0,
+    cursorY: Number.isFinite(y) ? y : 0,
+  }
+}
+
+/**
+ * Die Bytes, die ein frisch zurückgesetztes xterm in den Zustand von tmux bringen.
+ *
+ * Zeilen mit `\r\n` verbunden und **ohne** Zeilenwechsel am Ende — einer mehr rollte
+ * alles um eine Zeile hoch. Danach Attribute zurück (`-e` kann mitten in einer
+ * Farbe enden) und der Cursor absolut auf tmux' Position. Das setzt voraus, dass
+ * xterm so viele Zeilen hat wie der Pane; der Aufrufer stellt das mit dem Resize
+ * vorher sicher.
+ */
+export function buildRestoreSequence(s: PaneSnapshot): string {
+  const body = s.content.split('\n').join('\r\n')
+  return `${body}\x1b[0m\x1b[${s.cursorY + 1};${s.cursorX + 1}H`
+}

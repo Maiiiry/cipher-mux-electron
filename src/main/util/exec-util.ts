@@ -36,7 +36,7 @@ export function patchEnvPath(): void {
 export function runCommand(
   cmd: string,
   args: string[] = [],
-  opts: { timeout?: number; cwd?: string } = {},
+  opts: { timeout?: number; cwd?: string; trim?: boolean } = {},
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, {
@@ -47,7 +47,9 @@ export function runCommand(
       if (err) {
         reject(new Error(`${cmd} failed: ${stderr || err.message}`))
       } else {
-        resolve(stdout.trim())
+        // `trim: false` fuer Ausgaben, deren Leerraum Inhalt ist (Bildschirm-
+        // Schnappschuesse: leere Zeilen am Ende gehoeren zum Bildschirm).
+        resolve(opts.trim === false ? stdout : stdout.trim())
       }
     })
   })

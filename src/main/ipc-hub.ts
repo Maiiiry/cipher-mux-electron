@@ -882,6 +882,10 @@ export class IpcHub {
       return this.sessionManager.capture(paneId, lines)
     })
 
+    ipcMain.handle(IPC.TERMINAL_SNAPSHOT, async (_e, { paneId, lines }: { paneId: string; lines?: number }) => {
+      return this.sessionManager.snapshot(paneId, lines)
+    })
+
     ipcMain.on(IPC.TERMINAL_READY, (_e, { paneId, cols, rows }: { paneId: string; cols: number; rows: number }) => {
       this.sessionManager.markReady(paneId, cols, rows).catch((err) => {
         console.error('terminal ready error:', err)
