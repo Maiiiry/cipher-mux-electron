@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.5] — 2026-10-11
+
 ### Fixed
+- **Die Audit-Rolle kannte ihre eigenen Werkzeuge nicht.** Es gab zwei Vorlagen: die gepflegte
+  (`audit/`, deutsch — `mux_audit_run_start`/`_complete`, Rückgabe an die Cyber Factory,
+  Urteilsregeln, Tag-Achsen) schrieb nur `entities/audit/CLAUDE.md`, die niemand liest; die
+  ausgelieferte (`session/`, englisch) schrieb bei jedem Start die `preset.md` und hatte nichts
+  davon. Zusammengelegt in `audit/audit-template.ts` auf der englischen Fassung.
 - **Refinement und Ideation Partner hatten je zwei Vorlagen**, eine deutsche in `entity-content/`
   (schrieb die `preset.md` beim ersten Start, steckte hinter „Vorlage übernehmen“) und eine
   englische neben dem Sync-Code (ausgeliefert seit der EN-Vereinheitlichung im Mai). Korrekturen

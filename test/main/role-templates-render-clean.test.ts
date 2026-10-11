@@ -15,8 +15,7 @@ import { generateDebuggerClaudeMd } from '../../src/main/debugger/debugger-templ
 import { generateTestingAssistantClaudeMd } from '../../src/main/testing-assistant/testing-template'
 import { generateWorkshopClaudeMd } from '../../src/main/workshop/workshop-template'
 import { generateCyberFactoryClaudeMd } from '../../src/main/cyber-factory/cyber-factory-template'
-import { generateAuditClaudeMd } from '../../src/main/session/audit-template'
-import { generateAuditClaudeMd as generateAuditEntityClaudeMd } from '../../src/main/audit/audit-template'
+import { generateAuditClaudeMd } from '../../src/main/audit/audit-template'
 
 const mcp = { mcpHost: '127.0.0.1', mcpPort: 3100, mcpApiKey: 'k' }
 const rendered: Record<string, () => string> = {
@@ -27,8 +26,7 @@ const rendered: Record<string, () => string> = {
   'testing-assistant': generateTestingAssistantClaudeMd,
   workshop: () => generateWorkshopClaudeMd(mcp),
   'cyber-factory': () => generateCyberFactoryClaudeMd(mcp),
-  'audit (preset)': generateAuditClaudeMd,
-  'audit (entity)': generateAuditEntityClaudeMd,
+  audit: generateAuditClaudeMd,
 }
 
 describe('Rollen-Anweisungen: keine maskierten Backticks', () => {

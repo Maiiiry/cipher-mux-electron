@@ -7,7 +7,7 @@ import type { SessionInfo, StartSessionOpts, RecoveryResult, EntityId } from '..
 import { MAX_SESSIONS } from '../../shared/constants'
 import { BRAND } from '../../shared/brand'
 import { TmuxManager } from '../tmux/tmux-manager'
-import { generateAuditClaudeMd } from './audit-template'
+import { generateAuditClaudeMd } from '../audit/audit-template'
 import { generateVoiceRelayClaudeMd } from './voice-relay-template'
 import { generateDebuggerClaudeMd } from '../debugger/debugger-template'
 import {
