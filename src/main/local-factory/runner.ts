@@ -108,6 +108,8 @@ export class LocalFactoryRunner {
   private readonly o: Required<Omit<RunnerOpts, 'host' | 'laufDir' | 'bilanz' | 'workspaceId'>> & Pick<RunnerOpts, 'host' | 'laufDir' | 'bilanz' | 'workspaceId'>
   private running: Promise<void> = Promise.resolve()
   private busy = false
+  /** Laufende Urteile, `${laufId}#${nummer}` — verhindert doppelte Bilanz-Zeilen. */
+  private readonly judging = new Set<string>()
 
   constructor(opts: RunnerOpts) {
     this.o = {
@@ -159,23 +161,40 @@ export class LocalFactoryRunner {
     const errs = validateUrteil(u)
     if (errs.length) return { ok: false, error: `Urteil ungültig: ${errs.join('; ')}` }
     if (!LAUF_ID.test(laufId)) return { ok: false, error: 'laufId ungültig.' }
-    const f = this.laufFile(laufId)
-    const lauf = loadLauf(f)
-    if (!lauf) return { ok: false, error: `Lauf ${laufId} unbekannt.` }
-    const next = markBeurteilt(lauf, nummer)
-    if (next === lauf) {
-      const h = lauf.haeppchen.find(x => x.nummer === nummer)
-      return { ok: false, error: h ? `Häppchen #${nummer} ist nicht zu beurteilen (Status ${h.status}).` : `Häppchen #${nummer} gibt es nicht.` }
+    // Vor dem ersten await: zwei gleichzeitige Urteile zum selben Häppchen würden sonst beide
+    // die Prüfung bestehen und zwei Bilanz-Zeilen schreiben.
+    const claim = `${laufId}#${nummer}`
+    if (this.judging.has(claim)) return { ok: false, error: `Urteil zu Häppchen #${nummer} läuft bereits.` }
+    this.judging.add(claim)
+    try {
+      const f = this.laufFile(laufId)
+      const lauf = loadLauf(f)
+      if (!lauf) return { ok: false, error: `Lauf ${laufId} unbekannt.` }
+      const probe = markBeurteilt(lauf, nummer)
+      if (probe === lauf) {
+        const h = lauf.haeppchen.find(x => x.nummer === nummer)
+        return { ok: false, error: h ? `Häppchen #${nummer} ist nicht zu beurteilen (Status ${h.status}).` : `Häppchen #${nummer} gibt es nicht.` }
+      }
+      const h = probe.haeppchen.find(x => x.nummer === nummer)!
+      // Erst die Zeile, dann der Status: wirft das Anhängen, bleibt das Häppchen beurteilbar und ein
+      // Retry ist möglich. Schlimmstenfalls steht eine Zeile da und der Aufruf meldet Fehler — der
+      // Retry schreibt eine zweite sichtbare Zeile; besser als ein Urteil, das nie verbucht werden kann.
+      // Weil `record` echte I/O ist, wird der Status danach auf einem FRISCH geladenen Lauf gesetzt
+      // (ohne await bis zum Speichern): ein `prepare` kann dazwischen ein neues Häppchen gespeichert haben.
+      await this.o.bilanz?.record(buildBilanzZeile(probe, nummer, u as Urteil, {
+        now: new Date(this.o.now()).toISOString(), workspaceId: this.o.workspaceId ?? null, mitTest: h.mitTest ?? true,
+      }))
+      const frisch = loadLauf(f)
+      const next = frisch ? markBeurteilt(frisch, nummer) : null
+      if (!frisch || !next || next === frisch) {
+        const grund = !frisch ? 'Lauf nicht mehr lesbar' : `Status ${frisch.haeppchen.find(x => x.nummer === nummer)?.status ?? 'unbekannt'}`
+        return { ok: false, error: `Bilanz-Zeile geschrieben, Status nicht gesetzt: ${grund}.` }
+      }
+      saveLauf(f, next)
+      return { ok: true }
+    } finally {
+      this.judging.delete(claim)
     }
-    const h = next.haeppchen.find(x => x.nummer === nummer)!
-    // Erst die Zeile, dann der Status: wirft das Anhängen, bleibt das Häppchen beurteilbar und ein
-    // Retry ist möglich. Schlimmstenfalls steht eine Zeile da und der Aufruf meldet Fehler — der
-    // Retry schreibt eine zweite sichtbare Zeile; besser als ein Urteil, das nie verbucht werden kann.
-    await this.o.bilanz?.record(buildBilanzZeile(next, nummer, u as Urteil, {
-      now: new Date(this.o.now()).toISOString(), workspaceId: this.o.workspaceId ?? null, mitTest: h.mitTest ?? true,
-    }))
-    saveLauf(f, next)
-    return { ok: true }
   }
 
   private get testPflicht(): boolean { return this.o.rolle === 'local-factory' }

@@ -7,7 +7,7 @@ import * as path from 'path'
 import { execFileSync } from 'child_process'
 import { LocalFactoryRunner, type WorkerHost, type RunnerRolle } from '../../../src/main/local-factory/runner'
 import { createWorkerLock } from '../../../src/main/local-factory/worker-lock'
-import { loadLauf } from '../../../src/main/local-factory/lauf'
+import { loadLauf, saveLauf } from '../../../src/main/local-factory/lauf'
 import { IDLE_SIGNAL_FILENAME } from '../../../src/main/local-factory/worker-done'
 
 let repo: string
@@ -268,6 +268,7 @@ describe('LocalFactoryRunner — Urteil: Reihenfolge und Rennen', () => {
     fs.writeFileSync(hook, `#!/bin/sh\ntouch ${marker}\nsleep 1\n`, { mode: 0o755 })
     const p = r.dispatch({ ...args(), laufId: a.laufId, ziel: 'zwei', geschuetzteTests: ['test/accept2.sh'], testBefehl: 'grep -q ok2 impl2.txt' })
     for (let i = 0; i < 200 && !fs.existsSync(marker); i++) await new Promise(res => setTimeout(res, 25))
+    try {
     assert.ok(fs.existsSync(marker), 'Fenster nicht erreicht')
     assert.deepEqual(await r.judge(a.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' }), { ok: true })
     const d: any = await p
@@ -277,5 +278,41 @@ describe('LocalFactoryRunner — Urteil: Reihenfolge und Rennen', () => {
     assert.equal(lauf.haeppchen.find(h => h.nummer === 1)!.status, 'beurteilt')
     assert.equal((await r.judge(a.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' })).ok, false)
     assert.equal(rec.length, 1)
+    } finally { fs.rmSync(marker, { force: true }) }
+  })
+})
+
+describe('LocalFactoryRunner — Urteil: gleichzeitig und mit langsamer Senke', () => {
+  const langsam = (rec: unknown[], onRecord?: () => void) => ({
+    record: async (z: unknown) => { await new Promise(r => setTimeout(r, 50)); onRecord?.(); rec.push(z) },
+  })
+  const mk = (bilanz: any) => new LocalFactoryRunner({
+    host: fakeHost('brav'), laufDir, rolle: 'local-workshop', bilanz,
+    sleep: async () => {}, pollMs: 0, startupWaitMs: 0, quietMs: 1000, stallMs: 5000, timeoutMs: 5000, testTimeoutMs: 5000,
+  })
+
+  it('zwei gleichzeitige Urteile zum selben Häppchen: eines ok, eine Zeile', async () => {
+    const rec: unknown[] = []
+    const r = mk(langsam(rec))
+    const a: any = await r.dispatch(args()); await r.whenIdle()
+    const u = { ergebnis: 'uebernommen', kategorie: 'ui' } as const
+    const [x, y] = await Promise.all([r.judge(a.laufId, 1, u), r.judge(a.laufId, 1, u)])
+    assert.equal([x, y].filter(v => v.ok).length, 1)
+    assert.equal(rec.length, 1)
+  })
+
+  it('Lauf ändert sich während der langsamen Senke: neues Häppchen bleibt, Urteil gesetzt', async () => {
+    const rec: unknown[] = []
+    let laufPfad = ''
+    const r = mk(langsam(rec, () => {
+      const l = loadLauf(laufPfad)!
+      saveLauf(laufPfad, { ...l, haeppchen: [...l.haeppchen, { nummer: 2, ziel: 'neu', status: 'laeuft', versuche: [{ nr: 1, gestartet: 1 }] }] })
+    }))
+    const a: any = await r.dispatch(args()); await r.whenIdle()
+    laufPfad = path.join(laufDir, a.laufId, 'lauf.json')
+    assert.deepEqual(await r.judge(a.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' }), { ok: true })
+    const l = loadLauf(laufPfad)!
+    assert.equal(l.haeppchen.find(h => h.nummer === 2)?.status, 'laeuft')
+    assert.equal(l.haeppchen.find(h => h.nummer === 1)?.status, 'beurteilt')
   })
 })
