@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Rolle Local Workshop** — der Claude-Alltag, Routine geht an den lokalen Worker. Anders als die
+  Factory: kein Pflicht-Abnahmetest (`geschuetzteTests` darf leer sein), mehrere Modellprofile
+  (`agent.localWorkerProfiles`, `agent.localWorkerDefaultProfile`, pro Dispatch über `profil`;
+  `agent.localWorker` gilt weiter als Profil `default`; `modelOptions` gehen unverändert an
+  opencode) und ein Urteil pro Häppchen (`accept` mit `ergebnis`, `kategorie`, `notiz`; Status
+  `beurteilt`). Die Bilanz steht in `entities/local-workshop/bilanz.jsonl` und als Note „Local
+  Workshop: Bilanz". Ein Worker pro Workspace, geteilt mit der Factory.
+
 ## [0.12.7] — 2026-10-11
 
 ### Fixed

@@ -397,6 +397,18 @@ that as a failed attempt. Only tests the architect lists are protected. The work
 its own unit tests yet. Slices run one at a time. Design and measurements:
 `docs/superpowers/specs/2026-10-09-local-cyber-factory-design.md`.
 
+
+### Local Workshop: Claude as daily driver, routine goes local
+
+The role `local-workshop` (Claude Code) is the everyday counterpart to the Factory: Claude does
+the thinking, routine work (boilerplate, tests, small refactors, docs) goes to the local worker.
+Differences: no mandatory red acceptance test (`geschuetzteTests` may be empty, the test command
+still gates the result), several model profiles (`agent.localWorkerProfiles`, chosen per
+dispatch), and a verdict per item (`accepted as is`, `fixed up`, `re-cut`, `done myself`) that
+feeds a running ledger, `~/.config/cipher-mux/entities/local-workshop/bilanz.jsonl` plus the note
+"Local Workshop: Bilanz". It answers whether the local model earns its keep, by model and
+category. One worker per workspace at a time, shared with the Factory.
+
 ---
 
 ## Built with Itself
