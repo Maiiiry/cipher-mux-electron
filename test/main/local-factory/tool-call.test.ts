@@ -47,4 +47,10 @@ describe('handleLocalFactoryCall — accept-Fluss', () => {
     assert.equal(r.calls.dispatch.length, 1)
     assert.equal(res.isError, true)
   })
+
+  it('profil wird an dispatch durchgereicht', async () => {
+    const r = fakeRunner()
+    await handleLocalFactoryCall(r, { projekt: '/p', profil: 'mac' })
+    assert.equal(r.calls.dispatch[0].profil, 'mac')
+  })
 })

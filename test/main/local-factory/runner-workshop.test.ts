@@ -6,6 +6,7 @@ import * as os from 'os'
 import * as path from 'path'
 import { execFileSync } from 'child_process'
 import { LocalFactoryRunner, type WorkerHost, type RunnerRolle } from '../../../src/main/local-factory/runner'
+import { createWorkerLock } from '../../../src/main/local-factory/worker-lock'
 import { loadLauf } from '../../../src/main/local-factory/lauf'
 import { IDLE_SIGNAL_FILENAME } from '../../../src/main/local-factory/worker-done'
 
@@ -148,5 +149,40 @@ describe('Factory unverändert', () => {
     const r = new LocalFactoryRunner({ host: fakeHost('brav'), laufDir })
     const res: any = await r.dispatch({ ...args(), geschuetzteTests: [] })
     assert.match(res.error, /mindestens ein Abnahmetest/)
+  })
+})
+
+describe('Ein Worker zur Zeit', () => {
+  const mk = (host: WorkerHost, lock: ReturnType<typeof createWorkerLock>) => new LocalFactoryRunner({
+    host, laufDir, rolle: 'local-workshop', workerLock: lock, workspaceKey: 'ws',
+    sleep: async () => {}, pollMs: 0, startupWaitMs: 0, quietMs: 1000, stallMs: 5000, timeoutMs: 5000, testTimeoutMs: 5000,
+  })
+  it('Worker belegt durch die andere Rolle: nicht bereit, kein Versuch, kein Lauf angelegt', async () => {
+    const lock = createWorkerLock()
+    lock.claim('ws', 'local-factory')
+    const host = fakeHost('brav')
+    const res: { ok: boolean; error?: string } = await mk(host, lock).dispatch(args())
+    assert.equal(res.ok, false)
+    assert.match(res.error ?? '', /Worker belegt durch local-factory/)
+    assert.equal(fs.readdirSync(laufDir).length, 0)
+    assert.equal(host.sent.length, 0)
+  })
+  it('nach dem Versuch wird der Worker freigegeben', async () => {
+    const lock = createWorkerLock()
+    const r = mk(fakeHost('brav'), lock)
+    await r.dispatch(args()); await r.whenIdle()
+    assert.equal(lock.claim('ws', 'local-factory'), null)
+  })
+  it('eine Ablehnung nach dem Holen (nicht bereit) gibt den Worker frei', async () => {
+    const lock = createWorkerLock()
+    const res: { ok: boolean; error?: string } = await mk(fakeHost('nicht-bereit'), lock).dispatch(args())
+    assert.equal(res.ok, false)
+    assert.equal(lock.claim('ws', 'local-factory'), null)
+  })
+  it('eine Validierungsablehnung holt den Worker gar nicht erst', async () => {
+    const lock = createWorkerLock()
+    const res: { ok: boolean; error?: string } = await mk(fakeHost('brav'), lock).dispatch({ ...args(), ziel: '' })
+    assert.equal(res.ok, false)
+    assert.equal(lock.claim('ws', 'local-factory'), null)
   })
 })

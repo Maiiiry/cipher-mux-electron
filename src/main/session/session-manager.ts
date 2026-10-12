@@ -167,7 +167,7 @@ function getMcpPermissionsForEntity(entityId: EntityId): string[] {
       perms.push(`${MCP_PREFIX}kickoff_complete`, 'Bash(tmux:*)')
       break
   }
-  if (entityId === 'local-factory') {
+  if (entityId === 'local-factory' || entityId === 'local-workshop') {
     perms.push(`${MCP_PREFIX}${LOCAL_WORKER_DISPATCH_TOOL}`)
   }
   if (entityId === COMPANION_ENTITY_ID) {

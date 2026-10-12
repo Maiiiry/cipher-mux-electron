@@ -3,22 +3,26 @@ import { z } from 'zod'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolContext } from './mcp-tools'
 import { registerMuxTool } from './register-tool'
-import { LocalFactoryRunner } from '../local-factory/runner'
+import { LocalFactoryRunner, type RunnerRolle } from '../local-factory/runner'
+import { workerLock } from '../local-factory/worker-lock'
 import { handleLocalFactoryCall, type ToolArgs } from '../local-factory/tool-call'
 import { createWorkerHost } from '../local-factory/worker-host'
 import { resolveRunDir } from '../session/entity-run-dir'
 import { LOCAL_WORKER_DISPATCH_TOOL } from '../local-factory/presets'
 
-/** Ein Läufer pro Workspace; er überlebt die MCP-Verbindung, nicht den App-Neustart. */
+/** Ein Läufer pro Workspace und Rolle; er überlebt die MCP-Verbindung, nicht den App-Neustart. */
 const runners = new Map<string, LocalFactoryRunner>()
 
 export function getRunner(ctx: ToolContext): LocalFactoryRunner {
-  const key = ctx.workspaceId ?? '__unbound__'
+  const ws = ctx.workspaceId ?? '__unbound__'
+  const rolle: RunnerRolle = ctx.entityId === 'local-workshop' ? 'local-workshop' : 'local-factory'
+  const key = `${ws}::${rolle}`
   let r = runners.get(key)
   if (!r) {
     r = new LocalFactoryRunner({
       host: createWorkerHost(ctx),
-      laufDir: path.join(resolveRunDir(ctx.workspaceId ?? null, 'local-factory'), 'laeufe'),
+      laufDir: path.join(resolveRunDir(ctx.workspaceId ?? null, rolle), 'laeufe'),
+      rolle, workerLock, workspaceKey: ws,
     })
     runners.set(key, r)
   }
@@ -35,7 +39,8 @@ export function registerLocalFactoryTool(server: McpServer, ctx: ToolContext): v
       + 'you are woken with one line "[local-factory] #N ..." when the gate has run. Do not poll. '
       + 'Retry: same laufId + haeppchen. Max 2 attempts, then escalate to the user. '
       + 'accept=true with laufId and haeppchen (and nothing else required) marks a green item as accepted '
-      + 'after you reviewed the commit. All other fields are required for a dispatch.',
+      + 'after you reviewed the commit. All other fields are required for a dispatch. '
+      + 'For local-workshop: geschuetzteTests may be empty (routine without its own test); testBefehl is still required.',
     inputSchema: {
       // Optional im Schema, Pflicht beim Dispatch (validateAuftrag) — ein accept braucht sie nicht.
       projekt: z.string().optional().describe('Dispatch: absolute path of the target git repo'),
@@ -48,6 +53,7 @@ export function registerLocalFactoryTool(server: McpServer, ctx: ToolContext): v
       nichtZiele: z.array(z.string()).optional().describe('Dispatch: required (may be empty)'),
       laufId: z.string().optional().describe('Returned by the first dispatch; pass it on every later item and retry'),
       haeppchen: z.number().int().positive().optional().describe('Item number; pass it for a retry and for accept'),
+      profil: z.string().optional().describe('Dispatch: model profile name from the settings; omit for the default'),
       accept: z.boolean().optional(),
     },
   }, async (args: ToolArgs) => {

@@ -73,6 +73,9 @@ export function mayUseCompanionMemory(entityId: string | null | undefined): bool
   return entityId === COMPANION_ENTITY_ID
 }
 
+/** Rollen, die lokale Worker beauftragen dürfen (Spec 2026-10-12 §4.1). */
+const LOCAL_DISPATCH_ROLES = new Set(['local-factory', 'local-workshop'])
+
 /**
  * Whether a connection may dispatch local workers (Local Cyber Factory).
  *
@@ -81,5 +84,5 @@ export function mayUseCompanionMemory(entityId: string | null | undefined): bool
  * role's job, not something any plain connection should be able to trigger.
  */
 export function mayUseLocalWorkerDispatch(entityId: string | null | undefined): boolean {
-  return entityId === 'local-factory'
+  return !!entityId && LOCAL_DISPATCH_ROLES.has(entityId)
 }

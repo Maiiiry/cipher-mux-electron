@@ -14,6 +14,7 @@ import {
   checksums, savePatchAndReset, toRepoRelative, isRepoRoot, currentBranch,
 } from './git-ops'
 import { PROTECTED_PATHS_FILENAME } from '../session/entity-boundaries'
+import { createWorkerLock, type WorkerLock } from './worker-lock'
 
 /**
  * Der Läufer (Spec §7). Kein Modell: er startet, wartet, prüft und weckt.
@@ -58,6 +59,10 @@ export interface RunnerOpts {
   testTimeoutMs?: number
   /** Wer beauftragt. Bestimmt Weckziel, Präfix, Testpflicht, Ausschöpfungstext. Default: local-factory. */
   rolle?: RunnerRolle
+  /** Sperre „ein Worker pro Workspace“. Default: eine eigene je Läufer, also ohne Wirkung über Läufer hinweg. */
+  workerLock?: WorkerLock
+  /** Schlüssel der Sperre (Workspace). */
+  workspaceKey?: string
 }
 
 export interface DispatchArgs extends AuftragInput {
@@ -109,6 +114,8 @@ export class LocalFactoryRunner {
       timeoutMs: 60 * 60_000,
       testTimeoutMs: 15 * 60_000,
       rolle: 'local-factory',
+      workerLock: createWorkerLock(),
+      workspaceKey: '__unbound__',
       ...opts,
     }
   }
@@ -155,6 +162,11 @@ export class LocalFactoryRunner {
       return { ok: false, error: 'laufId ungültig: nur A-Z, a-z, 0-9, _ und -, höchstens 64 Zeichen.' }
     }
     if (this.busy) return { ok: false, error: 'Es läuft bereits ein Worker. Nacheinander (Spec E2).' }
+    // Vor jeder Datei und jedem await: eine belegte Sperre legt keinen Lauf an und zählt keinen Versuch.
+    const haelt = this.o.workerLock.claim(this.o.workspaceKey, this.o.rolle)
+    if (haelt) {
+      return { ok: false, error: `Nicht bereit: Worker belegt durch ${haelt} — kein Versuch gezählt.` }
+    }
     // Synchron setzen: zwischen Prüfung und Start liegen mehrere awaits (Spec E2).
     this.busy = true
     let res: DispatchAccepted | DispatchRejected
@@ -163,8 +175,14 @@ export class LocalFactoryRunner {
     } catch (err) {
       res = { ok: false, error: `Vorprüfung fehlgeschlagen: ${String(err)}` }
     }
-    if (!res.ok) this.busy = false
+    if (!res.ok) this.release()
     return res
+  }
+
+  /** busy und Workersperre gehören zusammen: nie eines ohne das andere freigeben. */
+  private release(): void {
+    this.busy = false
+    this.o.workerLock.release(this.o.workspaceKey, this.o.rolle)
   }
 
   private async prepare(args: DispatchArgs): Promise<DispatchAccepted | DispatchRejected> {
@@ -266,7 +284,7 @@ export class LocalFactoryRunner {
       nummer: begun.nummer, versuch: begun.versuch, vorherigesGate,
     })
       .catch(err => this.wake(`${this.praefix} #${begun.nummer} Läuferfehler: ${String(err)}`).catch(() => {}))
-      .finally(() => { this.busy = false })
+      .finally(() => { this.release() })
 
     return { ok: true, laufId, nummer: begun.nummer, versuch: begun.versuch, laufPfad }
   }
