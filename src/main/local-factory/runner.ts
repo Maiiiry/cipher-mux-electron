@@ -176,6 +176,11 @@ export class LocalFactoryRunner {
         return { ok: false, error: h ? `Häppchen #${nummer} ist nicht zu beurteilen (Status ${h.status}).` : `Häppchen #${nummer} gibt es nicht.` }
       }
       const h = probe.haeppchen.find(x => x.nummer === nummer)!
+      // „uebernommen“/„nachgebessert“ heißen: das Modell hat geliefert. Ein Häppchen, dessen letzter
+      // Versuch nicht grün war, hat nichts geliefert — die Bilanz würde sonst ein Ergebnis zählen, das es nie gab.
+      if ((u.ergebnis === 'uebernommen' || u.ergebnis === 'nachgebessert') && h.versuche.at(-1)?.verdict !== 'gruen') {
+        return { ok: false, error: `Häppchen #${nummer} war nicht grün: Urteil „${u.ergebnis}“ nicht möglich — neu-geschnitten oder selbst-uebernommen.` }
+      }
       // Erst die Zeile, dann der Status: wirft das Anhängen, bleibt das Häppchen beurteilbar und ein
       // Retry ist möglich. Schlimmstenfalls steht eine Zeile da und der Aufruf meldet Fehler — der
       // Retry schreibt eine zweite sichtbare Zeile; besser als ein Urteil, das nie verbucht werden kann.
@@ -317,7 +322,11 @@ export class LocalFactoryRunner {
     // Frisch laden und ohne await dazwischen speichern: `judge` ist nicht durch busy
     // geschützt und kann während der awaits oben ein Urteil geschrieben haben. Ein
     // Speichern des veralteten `begun.lauf` hätte es überschrieben (zweites Urteil, zweite Bilanz-Zeile).
-    const frisch = beginVersuch(loadLauf(laufPfad) ?? lauf0, {
+    // Die frisch geladene Datei kennt das Branch-Upgrade von oben noch nicht (lauf0 wurde nur
+    // im Speicher aufgewertet) — ohne dies ginge es beim Speichern wieder verloren.
+    let basis: Lauf = loadLauf(laufPfad) ?? lauf0
+    if (!basis.branch) basis = { ...basis, branch: branchJetzt }
+    const frisch = beginVersuch(basis, {
       nummer: args.haeppchen, ziel: args.ziel, now: this.o.now(), mitTest: prot.length > 0,
     })
     if ('error' in frisch) return { ok: false, error: frisch.error }

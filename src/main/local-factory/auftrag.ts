@@ -31,7 +31,8 @@ export function validateAuftrag(a: AuftragInput, opts: { testPflicht?: boolean }
   // geschuetzteTests: Element-Validierung
   // Der Workshop darf ohne Abnahmetest arbeiten (Testbefehl entscheidet); Elemente und Pfade prüft er trotzdem.
   if (!Array.isArray(a.geschuetzteTests)) {
-    errs.push('geschuetzteTests: Liste erforderlich')
+    // Die Factory meldet wie vor dem Workshop; „Liste erforderlich“ nur dort, wo Tests optional sind.
+    errs.push(opts.testPflicht !== false ? 'geschuetzteTests: mindestens ein Abnahmetest' : 'geschuetzteTests: Liste erforderlich')
   } else if (a.geschuetzteTests.length === 0 && opts.testPflicht !== false) {
     errs.push('geschuetzteTests: mindestens ein Abnahmetest')
   } else {

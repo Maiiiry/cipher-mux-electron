@@ -33,3 +33,32 @@ describe('Local-Workshop-Rollentext', () => {
     assert.doesNotMatch(p, /ESKALIERT/)
   })
 })
+
+describe('Local-Workshop-Rollentext — Final-Fix', () => {
+  it('Spec spiegeln, Plan als Note mit kind:plan (Widerspruch zu Schritt 3 weg)', () => {
+    assert.ok(p.includes('Die Spec spiegelt `mux_mirror_sync` (Typ `spec`); den Plan legst du als Note mit `kind:plan` an.'))
+    assert.doesNotMatch(p, /Spec und Plan spiegelt/)
+  })
+  it('„Nicht bereit“ kommt auch als Werkzeugantwort, nicht nur als Weckzeile', () => {
+    assert.match(p, /als Antwort auf den Dispatch oder als Weckzeile/)
+  })
+  it('abgebrochene Häppchen bekommen kein Urteil', () => {
+    assert.match(p, /durch einen Neustart abgebrochen[^.]*kein Urteil; dispatche es neu/)
+  })
+  it('„An den User melden“ des Werkzeugs gilt für den Workshop als selbst übernehmen', () => {
+    assert.match(p, /„An den User melden“ ab, gilt für dich: selbst übernehmen\s+und `selbst-uebernommen` urteilen/)
+  })
+})
+
+describe('Werkzeugbeschreibung je Rolle (Final-Fix 6)', () => {
+  it('Workshop: eigenes Präfix und selbst übernehmen; Factory: wie bisher', async () => {
+    const { buildDispatchDescription } = await import('../../../src/main/mcp/local-factory-tool')
+    const w = buildDispatchDescription('local-workshop')
+    assert.ok(w.includes('"[local-workshop] #N ..."'))
+    assert.ok(w.includes('take the item over yourself and judge it selbst-uebernommen'))
+    assert.ok(!w.includes('escalate to the user'))
+    const f = buildDispatchDescription('local-factory')
+    assert.ok(f.includes('"[local-factory] #N ..."'))
+    assert.ok(f.includes('Max 2 attempts, then escalate to the user. accept=true'))
+  })
+})

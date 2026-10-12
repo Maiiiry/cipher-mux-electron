@@ -75,6 +75,10 @@ export interface LaunchOpts {
   skipPermissions?: boolean
   /** Model override (e.g. 'haiku', 'sonnet', 'opus') — passed as --model <id> */
   model?: string
+  /** Rolle der Session. Ein Adapter braucht sie, wenn sein Startkommando rollenabhängig ist (opencode: local-worker). */
+  entityId?: string | null
+  /** Tatsächliches Arbeitsverzeichnis (Run-Verzeichnis); `projectPath` ist bei Rollen das authored-Verzeichnis. */
+  workDir?: string
 }
 
 export interface AdapterContext {

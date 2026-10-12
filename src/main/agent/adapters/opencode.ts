@@ -131,8 +131,9 @@ const defaultConfigReader: OpenCodeConfigReader = {
     return configStore.get('agent').skipPermissions
   },
   getLocalWorker(runDir: string): LocalWorkerConfig | null {
-    // Die Datei schreibt der Worker-Host vor dem Start. Fehlt sie (Worker von Hand
-    // gestartet), gilt das Standardprofil -- wie vor den Profilen.
+    // Die Datei schreibt der Worker-Host vor dem Start. Fehlt sie, gilt das Standardprofil.
+    // Achtung: ein von Hand gestarteter Worker liest eine liegengebliebene Datei des
+    // letzten Laufs -- das Standardprofil gilt nur, wenn gar keine da ist.
     const fromFile = readLocalProfileFile(runDir)
     if (fromFile) return fromFile.cfg
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -357,7 +358,12 @@ export class OpenCodeAdapter implements AgentAdapter {
       args.push('--continue')
     }
 
-    if (opts.model) {
+    // Beim lokalen Worker bestimmt das Profil das Modell (opencode.json, von der Bilanz notiert).
+    // Ein `--model` aus dem Rollen-Override (entityModels) würde es still überstimmen, und die
+    // Bilanz führte ein Modell, das nie lief. Ohne Profil-Datei (von Hand gestartet) bleibt es beim Alten.
+    const profilBestimmtModell = opts.entityId === LOCAL_WORKER_ENTITY_ID
+      && readLocalProfileFile(opts.workDir ?? opts.projectPath) !== null
+    if (opts.model && !profilBestimmtModell) {
       // Erwartet `provider/model`. Der Mux gibt weiter, was die Rolle oder der
       // Nutzer gesetzt hat, und validiert es nicht: eine Liste gueltiger
       // Modell-IDs waere eine Kopie, die veraltet.

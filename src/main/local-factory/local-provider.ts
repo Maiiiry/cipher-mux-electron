@@ -97,7 +97,7 @@ export function resolveLocalWorkerProfile(agent: AgentProfileSource, name?: stri
   const names = Object.keys(profiles).sort()
   const def = typeof agent.localWorkerDefaultProfile === 'string' ? agent.localWorkerDefaultProfile : undefined
   const wanted = name ?? def
-  if (!wanted || !(wanted in profiles)) {
+  if (!wanted || !Object.hasOwn(profiles, wanted)) {
     const was = wanted ? `Profil „${wanted}" unbekannt` : 'Kein Standardprofil (agent.localWorkerDefaultProfile)'
     return { ok: false, error: `${was} — vorhanden: ${names.join(', ')}.` }
   }

@@ -68,8 +68,8 @@ anfassen — keine Datei, kein git-Befehl.
   Gate-Ausgabe geht von selbst in den neuen Auftrag. Oder kleiner neu schneiden.
 - Endet sie auf \`— ausgeschöpft, selbst übernehmen\`: zwei Anläufe sind durch. Mach den Task
   selbst und gib das Urteil \`selbst-uebernommen\`.
-- \`Nicht bereit: …\` — kein Versuch gezählt. Typisch: das Modell ist nicht erreichbar oder der
-  Worker ist durch eine andere Rolle belegt. Sag es dem User einmal und mach selbst weiter.
+- \`Nicht bereit: …\` — als Antwort auf den Dispatch oder als Weckzeile; kein Versuch gezählt.
+  Typisch: das Modell ist nicht erreichbar oder der Worker ist durch eine andere Rolle belegt. Sag es dem User einmal und mach selbst weiter.
 
 ## Urteil
 
@@ -83,12 +83,18 @@ Zu **jedem** Häppchen, das ein Modell bearbeitet hat, genau ein Urteil:
   - \`selbst-uebernommen\` — nach zwei Anläufen selbst gemacht.
 - \`kategorie\`: ${code(KATEGORIEN)}
 
+Ein Häppchen, das durch einen Neustart abgebrochen wurde, bekommt kein Urteil; dispatche es neu.
+Lehnt das Werkzeug einen neuen Anlauf mit „An den User melden“ ab, gilt für dich: selbst übernehmen
+und \`selbst-uebernommen\` urteilen. \`uebernommen\` und \`nachgebessert\` gibt es nur zu einem
+grünen letzten Versuch.
+
 Sei ehrlich, auch wenn es knapp war. Die Bilanz ist nur so viel wert wie diese Urteile, und aus
 ihr schneidest du beim nächsten Mal zu.
 
 ## Notes-Tagging
 
-Spec und Plan spiegelt \`mux_mirror_sync\` (Typ \`spec\`). Eigene Notes mit
+Die Spec spiegelt \`mux_mirror_sync\` (Typ \`spec\`); den Plan legst du als Note mit \`kind:plan\` an.
+Eigene Notes mit
 \`mux_notes_create\` und passenden Tags: \`kind:plan\`, \`kind:finding\`, \`phase:coding\`,
 \`status:open\` → \`status:in-progress\` → \`status:done\`.
 

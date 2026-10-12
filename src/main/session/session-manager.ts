@@ -1511,6 +1511,8 @@ export class SessionManager extends EventEmitter {
       sessionName: config.displayName,
       isWorkshop: entityId === 'workshop',
       isCyberFactory: entityId === 'cyber-factory',
+      entityId,
+      workDir: this.sessions.get(sessionId)?.projectPath ?? undefined,
       ...(runtime.model ? { model: runtime.model } : {}),
     })
     const cmdStr = [launchCmd.cmd, ...launchCmd.args].join(' ')

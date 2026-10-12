@@ -85,3 +85,12 @@ describe('validateAuftrag ohne Testpflicht', () => {
     assert.doesNotMatch(md, /gesperrt/)
   })
 })
+
+describe('validateAuftrag — geschuetzteTests kein Array (Final-Fix 3)', () => {
+  it('Factory: Meldung wie vor dem Workshop', () => {
+    assert.ok(validateAuftrag({ ...a, geschuetzteTests: undefined as never }).includes('geschuetzteTests: mindestens ein Abnahmetest'))
+  })
+  it('testPflicht false: „Liste erforderlich“', () => {
+    assert.ok(validateAuftrag({ ...a, geschuetzteTests: undefined as never }, { testPflicht: false }).includes('geschuetzteTests: Liste erforderlich'))
+  })
+})

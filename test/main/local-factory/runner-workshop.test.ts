@@ -316,3 +316,40 @@ describe('LocalFactoryRunner — Urteil: gleichzeitig und mit langsamer Senke', 
     assert.equal(l.haeppchen.find(h => h.nummer === 1)?.status, 'beurteilt')
   })
 })
+
+describe('LocalFactoryRunner — Urteil nur zum Versuch passend (Final-Fix 1)', () => {
+  const mkr = (rec: unknown[]) => new LocalFactoryRunner({
+    host: fakeHost('haengt'), laufDir, rolle: 'local-workshop', bilanz: { record: async z => { rec.push(z) } },
+    sleep: async () => {}, pollMs: 0, startupWaitMs: 0, quietMs: 1000, stallMs: 5000, timeoutMs: 50, testTimeoutMs: 5000,
+  })
+  it('rotes Häppchen als uebernommen/nachgebessert: abgelehnt, keine Zeile; selbst-uebernommen geht', async () => {
+    const rec: unknown[] = []
+    const r = mkr(rec)
+    const a: any = await r.dispatch(args()); await r.whenIdle()
+    for (const ergebnis of ['uebernommen', 'nachgebessert'] as const) {
+      const u: any = await r.judge(a.laufId, 1, { ergebnis, kategorie: 'logik', notiz: 'x' })
+      assert.equal(u.ok, false)
+      assert.match(u.error, /neu-geschnitten/)
+      assert.match(u.error, /selbst-uebernommen/)
+    }
+    assert.equal(rec.length, 0)
+    assert.deepEqual(await r.judge(a.laufId, 1, { ergebnis: 'selbst-uebernommen', kategorie: 'logik' }), { ok: true })
+    assert.equal(rec.length, 1)
+  })
+})
+
+describe('LocalFactoryRunner — Branch älterer Läufe (Final-Fix 4)', () => {
+  it('ein Lauf ohne branch in lauf.json trägt nach dem nächsten Dispatch den Branch', async () => {
+    const r = ws(fakeHost('brav'))
+    const a: any = await r.dispatch(args()); await r.whenIdle()
+    const l = loadLauf(a.laufPfad)!
+    const { branch: _alt, ...ohne } = l
+    saveLauf(a.laufPfad, ohne as typeof l)
+    assert.equal(loadLauf(a.laufPfad)!.branch, undefined)
+    fs.writeFileSync(path.join(repo, 'test', 'accept2.sh'), 'grep -q ok2 impl2.txt\n')
+    const d: any = await r.dispatch({ ...args(), laufId: a.laufId, ziel: 'zwei', geschuetzteTests: ['test/accept2.sh'], testBefehl: 'grep -q ok2 impl2.txt' })
+    assert.equal(d.ok, true, d.error)
+    await r.whenIdle()
+    assert.ok(loadLauf(a.laufPfad)!.branch)
+  })
+})

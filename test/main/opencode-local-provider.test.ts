@@ -92,3 +92,19 @@ describe('OpenCodeAdapter — Profil-Datei des Run-Verzeichnisses', () => {
     }
   })
 })
+
+describe('OpenCodeAdapter.buildLaunchCommand — Modell-Override und Profil (Final-Fix 5)', () => {
+  const adapter = new OpenCodeAdapter({ getSkipPermissions: () => true })
+  const opts = (dir: string, entityId: string) => ({ projectPath: dir, workDir: dir, sessionName: 's', entityId, model: 'anthropic/x' })
+  it('local-worker mit Profil-Datei: kein --model, das Profil bestimmt das Modell', () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-lp-'))
+    writeLocalProfileFile(d, { profil: 'default', cfg })
+    assert.ok(!adapter.buildLaunchCommand(opts(d, 'local-worker')).args.includes('--model'))
+  })
+  it('local-worker ohne Profil-Datei, und andere Rollen mit: --model bleibt', () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-lp-'))
+    assert.ok(adapter.buildLaunchCommand(opts(d, 'local-worker')).args.includes('--model'))
+    writeLocalProfileFile(d, { profil: 'default', cfg })
+    assert.ok(adapter.buildLaunchCommand(opts(d, 'workshop')).args.includes('--model'))
+  })
+})

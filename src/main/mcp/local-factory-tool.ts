@@ -38,17 +38,27 @@ export function getRunner(ctx: ToolContext): LocalFactoryRunner {
 
 const text = (v: unknown) => [{ type: 'text' as const, text: JSON.stringify(v) }]
 
+/**
+ * Beschreibung je Rolle: der Workshop wird mit „[local-workshop] #N" geweckt und eskaliert nicht an den
+ * User, sondern übernimmt selbst. Für die Factory bleibt der Text wortgleich.
+ */
+export function buildDispatchDescription(rolle: RunnerRolle): string {
+  const ws = rolle === 'local-workshop'
+  return 'Local Cyber Factory: start a fresh local worker (opencode + local model) on ONE work item. '
+    + 'Write the acceptance test first (must be red); do not commit it. Returns immediately; '
+    + `you are woken with one line "[${ws ? 'local-workshop' : 'local-factory'}] #N ..." when the gate has run. Do not poll. `
+    + (ws
+      ? 'Retry: same laufId + haeppchen. Max 2 attempts, then take the item over yourself and judge it selbst-uebernommen. '
+      : 'Retry: same laufId + haeppchen. Max 2 attempts, then escalate to the user. ')
+    + 'accept=true with laufId and haeppchen (and nothing else required) marks a green item as accepted '
+    + 'after you reviewed the commit. All other fields are required for a dispatch. '
+    + 'local-workshop: accept=true carries the verdict (ergebnis, kategorie, notiz — notiz required for nachgebessert) and also works for an exhausted item. '
+    + 'For local-workshop: geschuetzteTests may be empty (routine without its own test); testBefehl is still required.'
+}
+
 export function registerLocalFactoryTool(server: McpServer, ctx: ToolContext): void {
   registerMuxTool(server, LOCAL_WORKER_DISPATCH_TOOL, {
-    description:
-      'Local Cyber Factory: start a fresh local worker (opencode + local model) on ONE work item. '
-      + 'Write the acceptance test first (must be red); do not commit it. Returns immediately; '
-      + 'you are woken with one line "[local-factory] #N ..." when the gate has run. Do not poll. '
-      + 'Retry: same laufId + haeppchen. Max 2 attempts, then escalate to the user. '
-      + 'accept=true with laufId and haeppchen (and nothing else required) marks a green item as accepted '
-      + 'after you reviewed the commit. All other fields are required for a dispatch. '
-      + 'local-workshop: accept=true carries the verdict (ergebnis, kategorie, notiz — notiz required for nachgebessert) and also works for an exhausted item. '
-      + 'For local-workshop: geschuetzteTests may be empty (routine without its own test); testBefehl is still required.',
+    description: buildDispatchDescription(ctx.entityId === 'local-workshop' ? 'local-workshop' : 'local-factory'),
     inputSchema: {
       // Optional im Schema, Pflicht beim Dispatch (validateAuftrag) — ein accept braucht sie nicht.
       projekt: z.string().optional().describe('Dispatch: absolute path of the target git repo'),
