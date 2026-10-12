@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.8] — 2026-10-12
+
 ### Added
 - **Rolle Local Workshop** — der Claude-Alltag, Routine geht an den lokalen Worker. Anders als die
   Factory: kein Pflicht-Abnahmetest (`geschuetzteTests` darf leer sein), mehrere Modellprofile
