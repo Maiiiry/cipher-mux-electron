@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.9] — 2026-10-12
+
+### Fixed
+- **Die Bilanz-Note des Local Workshops war für die Suche unsichtbar.** Die Rolle liest ihre Bilanz
+  beim Start über `mux_notes_search`, die Senke schrieb aber am Suchindex vorbei — gefunden in der
+  ersten echten Abnahme (Mac, `qwen38-27b-mlx-64k`, zwei Aufträge, beide übernommen). Der Lernkreis
+  hatte damit keine Quelle.
+
 ## [0.12.8] — 2026-10-12
 
 ### Added

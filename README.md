@@ -18,15 +18,15 @@
 
 <p align="center">
   <a href="https://github.com/cmarkus42-rgb/cipher-mux-electron/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/cmarkus42-rgb/cipher-mux-electron/ci.yml?branch=main&label=CI&style=flat-square&labelColor=000000&color=F5F5EC"></a>
-  <a href="https://github.com/cmarkus42-rgb/cipher-mux-electron/releases"><img alt="Version" src="https://img.shields.io/badge/version-0.12.8-0088A0?style=flat-square&labelColor=000000"></a>
-  <a href="#built-with-itself"><img alt="Tests" src="https://img.shields.io/badge/tests-2636%20green-00FF88?style=flat-square&labelColor=000000"></a>
+  <a href="https://github.com/cmarkus42-rgb/cipher-mux-electron/releases"><img alt="Version" src="https://img.shields.io/badge/version-0.12.9-0088A0?style=flat-square&labelColor=000000"></a>
+  <a href="#built-with-itself"><img alt="Tests" src="https://img.shields.io/badge/tests-2637%20green-00FF88?style=flat-square&labelColor=000000"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-F5F5EC?style=flat-square&labelColor=000000"></a>
   <a href="#install"><img alt="Platform" src="https://img.shields.io/badge/platform-macOS%2012%2B-F5F5EC?style=flat-square&labelColor=000000"></a>
   <a href="CONTRIBUTING.md#maintenance-status"><img alt="Maintenance" src="https://img.shields.io/badge/maintenance-active-00FF88?style=flat-square&labelColor=000000"></a>
   <a href="#install"><img alt="Open Beta" src="https://img.shields.io/badge/status-open%20beta-0088A0?style=flat-square&labelColor=000000"></a>
 </p>
 
-<p align="center"><sub><b>v0.12.8</b> · open beta · feedback via <a href="https://github.com/cmarkus42-rgb/cipher-mux-electron/issues">Issues</a></sub></p>
+<p align="center"><sub><b>v0.12.9</b> · open beta · feedback via <a href="https://github.com/cmarkus42-rgb/cipher-mux-electron/issues">Issues</a></sub></p>
 
 ---
 
