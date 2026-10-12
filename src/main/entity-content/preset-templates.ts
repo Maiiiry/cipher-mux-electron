@@ -13,6 +13,7 @@
 
 import { generateCompanionClaudeMd } from './companion-preset'
 import { generateRefinementClaudeMd, generateIdeationPartnerClaudeMd } from './index'
+import { generateLocalWorkshopPreset } from '../local-factory/workshop-preset'
 import { generateDebuggerClaudeMd } from '../debugger/debugger-template'
 
 export const PRESET_TEMPLATES: Readonly<Record<string, () => string>> = {
@@ -20,6 +21,7 @@ export const PRESET_TEMPLATES: Readonly<Record<string, () => string>> = {
   refinement: generateRefinementClaudeMd,
   'ideation-partner': generateIdeationPartnerClaudeMd,
   debugger: generateDebuggerClaudeMd,
+  'local-workshop': generateLocalWorkshopPreset,
 }
 
 /** Die Vorlage einer Rolle, oder `null` wenn sie keine hat. */

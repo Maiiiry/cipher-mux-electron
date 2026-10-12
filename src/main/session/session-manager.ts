@@ -54,6 +54,7 @@ import {
 /** Role directories — a workspace cell pointing here is a role, not a project. */
 const ENTITIES_ROOT = path.join(os.homedir(), '.config', 'cipher-mux', 'entities')
 import type { WorkspaceSectionSource } from './folder-session'
+import { generateLocalWorkshopPreset } from '../local-factory/workshop-preset'
 import { generateLocalFactoryPreset, generateLocalWorkerPreset, LOCAL_WORKER_DISPATCH_TOOL } from '../local-factory/presets'
 import type { PaneSnapshot } from '../../shared/terminal-resync'
 
@@ -1254,6 +1255,10 @@ export class SessionManager extends EventEmitter {
       } else if (config.id === 'local-factory') {
         if (!fs.existsSync(presetMdPath)) {
           fs.writeFileSync(presetMdPath, generateLocalFactoryPreset(), 'utf-8')
+        }
+      } else if (config.id === 'local-workshop') {
+        if (!fs.existsSync(presetMdPath)) {
+          fs.writeFileSync(presetMdPath, generateLocalWorkshopPreset(), 'utf-8')
         }
       } else if (config.id === 'local-worker') {
         // Bei jedem Start neu: der Worker hat keine Handarbeit zu bewahren,

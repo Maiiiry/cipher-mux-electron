@@ -18,7 +18,7 @@ export type AdapterCapabilities = Record<AdapterFeature, boolean>
 // ─── Entity Framework ─────────────────────────────────────
 
 /** Well-known entity identifiers. Extensible via string for dynamic/scanned entities. */
-export type BuiltinEntityId = 'workshop' | 'cyber-factory' | 'launcher' | 'companion' | 'refinement' | 'voice-relay' | 'audit' | 'ideation-partner' | 'debugger' | 'testing-assistant' | 'bugreport' | 'local-factory' | 'local-worker'
+export type BuiltinEntityId = 'workshop' | 'cyber-factory' | 'launcher' | 'companion' | 'refinement' | 'voice-relay' | 'audit' | 'ideation-partner' | 'debugger' | 'testing-assistant' | 'bugreport' | 'local-factory' | 'local-worker' | 'local-workshop'
 export type EntityId = BuiltinEntityId | (string & {})
 
 /**

@@ -43,8 +43,8 @@ export function createBilanzSink(opts: { dir: string; notes?: Pick<NoteManager, 
           await notes.save(id, body)
           return
         }
-        // Nur Achsen-Tags; entity/workspace setzt der Mux, `local-workshop` ist (noch) kein ENTITY_VALUES-Wert.
-        const created = await notes.create(BILANZ_NOTE_TITLE, body, ['kind:reference'])
+        // `entity:local-workshop` ist ein Achsenwert (ENTITY_VALUES), die Note gehört dieser Rolle.
+        const created = await notes.create(BILANZ_NOTE_TITLE, body, ['kind:reference', 'entity:local-workshop'])
         fs.writeFileSync(idFile, JSON.stringify({ id: created.id }) + '\n', 'utf-8')
       } catch (err) {
         console.warn('[bilanz] Note nicht aktualisiert:', err)

@@ -120,6 +120,18 @@ export function registerBuiltinEntities(
   })
 
   registry.register({
+    id: 'local-workshop',
+    displayName: 'Local Workshop',
+    icon: '🛠️',
+    color: '#00897b',
+    projectPath: `${entitiesBase}/local-workshop`,
+    features: ['mcp'],
+    visible: true,
+    sortOrder: 43,
+    singleInstance: true,
+  })
+
+  registry.register({
     id: 'launcher',
     displayName: 'Launcher',
     icon: '🚀',

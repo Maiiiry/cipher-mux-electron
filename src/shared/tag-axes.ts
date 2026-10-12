@@ -85,7 +85,7 @@ export const SEVERITY_VALUES: readonly string[] = ['low', 'mid', 'hi', 'now']
 export const ENTITY_VALUES: readonly string[] = [
   'workshop', 'cyber-factory', 'launcher', 'companion', 'refinement',
   'ideation-partner', 'voice-relay', 'audit', 'debugger', 'testing-assistant',
-  'local-factory', 'local-worker',
+  'local-factory', 'local-worker', 'local-workshop',
 ]
 
 /**

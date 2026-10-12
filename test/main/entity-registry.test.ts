@@ -94,11 +94,11 @@ describe('registerBuiltinEntities()', () => {
     const registry = new EntityRegistry()
     registerBuiltinEntities(registry)
     const entities = registry.list()
-    assert.strictEqual(entities.length, 12)
+    assert.strictEqual(entities.length, 13)
     const ids = entities.map((e: any) => e.id).sort()
     assert.deepStrictEqual(ids, [
       'audit', 'companion', 'cyber-factory', 'debugger',
-      'ideation-partner', 'launcher', 'local-factory', 'local-worker', 'refinement',
+      'ideation-partner', 'launcher', 'local-factory', 'local-worker', 'local-workshop', 'refinement',
       'testing-assistant', 'voice-relay', 'workshop',
     ])
   })
@@ -142,5 +142,15 @@ describe('Local Cyber Factory im Registry', () => {
     assert.equal(f.singleInstance, true)
     assert.equal(w.adapterId, 'opencode')
     assert.equal(w.singleInstance, true)
+  })
+
+  it('registriert local-workshop (claude, mcp, singleInstance)', () => {
+    const r = new EntityRegistry()
+    registerBuiltinEntities(r)
+    const k = r.get('local-workshop')!
+    assert.ok(k.features.includes('mcp'))
+    assert.equal(k.singleInstance, true)
+    assert.ok(!k.adapterId)
+    assert.ok(k.projectPath.endsWith('/entities/local-workshop'))
   })
 })

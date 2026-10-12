@@ -10,7 +10,8 @@ function fakeNotes() {
   let n = 0
   return {
     store,
-    async create(title: string, body: string) { const id = `N${++n}`; store.set(id, body); return { id } as any },
+    tags: [] as string[][],
+    async create(title: string, body: string, tags?: string[]) { this.tags.push(tags ?? []); const id = `N${++n}`; store.set(id, body); return { id } as any },
     async save(id: string, body: string) { store.set(id, body); return { id } as any },
     async read(id: string) { return store.has(id) ? ({ id, body: store.get(id) } as any) : null },
   }
@@ -27,6 +28,7 @@ describe('BilanzSink', () => {
     await s.record(zeile(1)); await s.record(zeile(2))
     assert.equal(fs.readFileSync(path.join(dir, 'bilanz.jsonl'), 'utf-8').trim().split('\n').length, 2)
     assert.equal(notes.store.size, 1)
+    assert.deepEqual(notes.tags, [['kind:reference', 'entity:local-workshop']])
     assert.match([...notes.store.values()][0], /\| m \| ui \| 2 \|/)
   })
   it('die Note trägt genau eine Titelzeile', async () => {

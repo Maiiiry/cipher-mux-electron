@@ -170,6 +170,7 @@ export function SessionCell({
     bugreport: 'var(--entity-color-11, #78909c)',
     'local-factory': '#8e24aa',
     'local-worker': '#6d4c41',
+    'local-workshop': '#00897b',
   }
   const entityColor = session.entityId ? ENTITY_COLORS[session.entityId] : undefined
   const isEntity = !!session.entityId
