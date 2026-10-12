@@ -167,11 +167,14 @@ export class LocalFactoryRunner {
       const h = lauf.haeppchen.find(x => x.nummer === nummer)
       return { ok: false, error: h ? `Häppchen #${nummer} ist nicht zu beurteilen (Status ${h.status}).` : `Häppchen #${nummer} gibt es nicht.` }
     }
-    saveLauf(f, next)
     const h = next.haeppchen.find(x => x.nummer === nummer)!
+    // Erst die Zeile, dann der Status: wirft das Anhängen, bleibt das Häppchen beurteilbar und ein
+    // Retry ist möglich. Schlimmstenfalls steht eine Zeile da und der Aufruf meldet Fehler — der
+    // Retry schreibt eine zweite sichtbare Zeile; besser als ein Urteil, das nie verbucht werden kann.
     await this.o.bilanz?.record(buildBilanzZeile(next, nummer, u as Urteil, {
       now: new Date(this.o.now()).toISOString(), workspaceId: this.o.workspaceId ?? null, mitTest: h.mitTest ?? true,
     }))
+    saveLauf(f, next)
     return { ok: true }
   }
 
@@ -292,7 +295,14 @@ export class LocalFactoryRunner {
     const base = await headCommit(projekt)
     const branch = branchJetzt
     const sumsBefore = checksums(projekt, prot)
-    saveLauf(laufPfad, begun.lauf)
+    // Frisch laden und ohne await dazwischen speichern: `judge` ist nicht durch busy
+    // geschützt und kann während der awaits oben ein Urteil geschrieben haben. Ein
+    // Speichern des veralteten `begun.lauf` hätte es überschrieben (zweites Urteil, zweite Bilanz-Zeile).
+    const frisch = beginVersuch(loadLauf(laufPfad) ?? lauf0, {
+      nummer: args.haeppchen, ziel: args.ziel, now: this.o.now(), mitTest: prot.length > 0,
+    })
+    if ('error' in frisch) return { ok: false, error: frisch.error }
+    saveLauf(laufPfad, frisch.lauf)
 
     // Vorheriges Gate für einen zweiten Versuch — aus der Datei, nicht vom Architekten.
     const prevV = args.haeppchen !== undefined

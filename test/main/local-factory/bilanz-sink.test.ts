@@ -53,3 +53,22 @@ describe('BilanzSink', () => {
     assert.match([...notes.store.values()][0], /\| m \| ui \| 1 \|/)
   })
 })
+
+describe('BilanzSink — Ausfälle', () => {
+  it('Note-Manager wirft: record löst auf, die jsonl hat die Zeile', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bil-'))
+    const kaputt = {
+      async create(): Promise<never> { throw new Error('platte voll') },
+      async save(): Promise<never> { throw new Error('platte voll') },
+      async read(): Promise<never> { throw new Error('platte voll') },
+    }
+    const warn = console.warn; console.warn = () => {}
+    try { await createBilanzSink({ dir, notes: kaputt as any }).record(zeile(1)) } finally { console.warn = warn }
+    assert.equal(fs.readFileSync(path.join(dir, 'bilanz.jsonl'), 'utf-8').trim().split('\n').length, 1)
+  })
+  it('ohne Note-Manager: nur die jsonl', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bil-'))
+    await createBilanzSink({ dir }).record(zeile(1))
+    assert.equal(fs.readFileSync(path.join(dir, 'bilanz.jsonl'), 'utf-8').trim().split('\n').length, 1)
+  })
+})

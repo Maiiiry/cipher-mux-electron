@@ -14,7 +14,7 @@ import type { Urteil } from './bilanz'
 export type ToolArgs = Partial<DispatchArgs> & { accept?: boolean } & Partial<Urteil>
 
 export async function handleLocalFactoryCall(
-  runner: Pick<LocalFactoryRunner, 'dispatch' | 'accept'> & Partial<Pick<LocalFactoryRunner, 'judge'>>,
+  runner: Pick<LocalFactoryRunner, 'dispatch' | 'accept' | 'judge'>,
   args: ToolArgs,
   rolle: RunnerRolle = 'local-factory',
 ): Promise<{ result: unknown; isError: boolean }> {
@@ -26,7 +26,7 @@ export async function handleLocalFactoryCall(
       }
     }
     // Der Workshop urteilt statt abzunehmen: Ergebnis, Kategorie, Notiz; auch für ein ausgeschöpftes Häppchen.
-    if (rolle === 'local-workshop' && runner.judge) {
+    if (rolle === 'local-workshop') {
       const j = await runner.judge(args.laufId, args.haeppchen, { ergebnis: args.ergebnis, kategorie: args.kategorie, notiz: args.notiz })
       return j.ok ? { result: { ok: true, beurteilt: args.haeppchen }, isError: false } : { result: j, isError: true }
     }

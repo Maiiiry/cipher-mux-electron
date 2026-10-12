@@ -25,8 +25,9 @@ export function getRunner(ctx: ToolContext): LocalFactoryRunner {
       host: createWorkerHost(ctx),
       laufDir: path.join(resolveRunDir(ctx.workspaceId ?? null, rolle), 'laeufe'),
       rolle, workerLock, workspaceKey: ws,
-      bilanz: rolle === 'local-workshop' && ctx.noteManager
-        ? createBilanzSink({ dir: path.join(ENTITIES_BASE, 'local-workshop'), notes: ctx.noteManager })
+      // Ohne NoteManager entsteht trotzdem die jsonl; nur die Note-Ansicht entfällt.
+      bilanz: rolle === 'local-workshop'
+        ? createBilanzSink({ dir: path.join(ENTITIES_BASE, 'local-workshop'), notes: ctx.noteManager ?? undefined })
         : undefined,
       workspaceId: ctx.workspaceId ?? null,
     })

@@ -15,6 +15,7 @@ function fakeRunner(acceptRes: AcceptResult = { ok: true }) {
       calls.accept.push([laufId, n])
       return acceptRes
     },
+    async judge(): Promise<AcceptResult> { return { ok: true } },
   }
 }
 

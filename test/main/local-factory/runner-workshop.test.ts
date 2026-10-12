@@ -240,3 +240,42 @@ describe('LocalFactoryRunner — Urteil und Bilanz', () => {
     await r.whenIdle()
   })
 })
+
+describe('LocalFactoryRunner — Urteil: Reihenfolge und Rennen', () => {
+  const mkr = (bilanz: { record(z: unknown): Promise<void> }) => new LocalFactoryRunner({
+    host: fakeHost('brav'), laufDir, rolle: 'local-workshop', bilanz: bilanz as any,
+    sleep: async () => {}, pollMs: 0, startupWaitMs: 0, quietMs: 1000, stallMs: 5000, timeoutMs: 5000, testTimeoutMs: 5000,
+  })
+
+  it('wirft die Senke, bleibt das Häppchen beurteilbar', async () => {
+    let n = 0
+    const r = mkr({ record: async () => { if (n++ === 0) throw new Error('jsonl') } })
+    const res: any = await r.dispatch(args()); await r.whenIdle()
+    const u1 = await r.judge(res.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' }).catch(e => ({ ok: false, e }))
+    assert.equal(u1.ok, false)
+    assert.notEqual(loadLauf(path.join(laufDir, res.laufId, 'lauf.json'))!.haeppchen[0].status, 'beurteilt')
+    assert.deepEqual(await r.judge(res.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' }), { ok: true })
+  })
+
+  it('judge während prepare eines Folge-Dispatch: das Urteil bleibt, ein zweites wird abgelehnt', async () => {
+    const rec: unknown[] = []
+    const r = mkr({ record: async z => { rec.push(z) } })
+    const a: any = await r.dispatch(args()); await r.whenIdle()
+    // Zweiter Auftrag mit eigenem, noch offenem Abnahmetest — dessen Commit in prepare ist das Fenster.
+    fs.writeFileSync(path.join(repo, 'test', 'accept2.sh'), 'grep -q ok2 impl2.txt\n')
+    const marker = path.join(os.tmpdir(), `lf-marker-${Date.now()}`)
+    const hook = path.join(repo, '.git', 'hooks', 'post-commit')
+    fs.writeFileSync(hook, `#!/bin/sh\ntouch ${marker}\nsleep 1\n`, { mode: 0o755 })
+    const p = r.dispatch({ ...args(), laufId: a.laufId, ziel: 'zwei', geschuetzteTests: ['test/accept2.sh'], testBefehl: 'grep -q ok2 impl2.txt' })
+    for (let i = 0; i < 200 && !fs.existsSync(marker); i++) await new Promise(res => setTimeout(res, 25))
+    assert.ok(fs.existsSync(marker), 'Fenster nicht erreicht')
+    assert.deepEqual(await r.judge(a.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' }), { ok: true })
+    const d: any = await p
+    assert.equal(d.ok, true, d.error)
+    await r.whenIdle()
+    const lauf = loadLauf(path.join(laufDir, a.laufId, 'lauf.json'))!
+    assert.equal(lauf.haeppchen.find(h => h.nummer === 1)!.status, 'beurteilt')
+    assert.equal((await r.judge(a.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' })).ok, false)
+    assert.equal(rec.length, 1)
+  })
+})
