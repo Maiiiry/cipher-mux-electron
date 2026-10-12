@@ -186,3 +186,57 @@ describe('Ein Worker zur Zeit', () => {
     assert.equal(lock.claim('ws', 'local-factory'), null)
   })
 })
+
+describe('LocalFactoryRunner — Urteil und Bilanz', () => {
+  it('Urteil: schreibt eine Bilanz-Zeile, zweites Urteil abgelehnt', async () => {
+    const rec: any[] = []
+    const host = fakeHost('brav')
+    const r = new LocalFactoryRunner({ host, laufDir, rolle: 'local-workshop', bilanz: { record: async z => { rec.push(z) } },
+      sleep: async () => {}, pollMs: 0, startupWaitMs: 0, quietMs: 1000, stallMs: 5000, timeoutMs: 5000, testTimeoutMs: 5000 })
+    const res: any = await r.dispatch(args()); await r.whenIdle()
+    assert.deepEqual(await r.judge(res.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' }), { ok: true })
+    assert.equal(rec.length, 1)
+    assert.equal(rec[0].dateien, 1); assert.ok(rec[0].diffZeilen >= 1)
+    const zweites = await r.judge(res.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' })
+    assert.equal(zweites.ok, false)
+    assert.equal(rec.length, 1)
+  })
+
+  it('ein beurteiltes Häppchen lässt sich nicht erneut dispatchen', async () => {
+    // Ohne Abnahmetest, sonst träfe die „schon grün“-Vorprüfung vor der Statusprüfung.
+    fs.rmSync(path.join(repo, 'test'), { recursive: true })
+    const a = { ...args(), geschuetzteTests: [], testBefehl: 'true' }
+    const r = ws(fakeHost('brav'))
+    const res: any = await r.dispatch(a); await r.whenIdle()
+    await r.judge(res.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' })
+    const again: any = await r.dispatch({ ...a, laufId: res.laufId, haeppchen: 1 })
+    assert.equal(again.ok, false)
+    assert.match(again.error, /schon beurteilt/)
+  })
+
+  it('Urteil ohne Felder wird abgelehnt', async () => {
+    const r = ws(fakeHost('brav'))
+    const res: any = await r.dispatch(args()); await r.whenIdle()
+    const u = await r.judge(res.laufId, 1, {})
+    assert.equal(u.ok, false)
+  })
+
+  it('selbst-uebernommen gilt auch für ein ausgeschöpftes Häppchen', async () => {
+    const rec: any[] = []
+    const host = fakeHost('haengt')
+    const r = new LocalFactoryRunner({ host, laufDir, rolle: 'local-workshop', bilanz: { record: async z => { rec.push(z) } },
+      sleep: async () => {}, pollMs: 0, startupWaitMs: 0, quietMs: 1000, stallMs: 5000, timeoutMs: 50, testTimeoutMs: 5000 })
+    const a: any = await r.dispatch(args()); await r.whenIdle()
+    await r.dispatch({ ...args(), laufId: a.laufId, haeppchen: 1 }); await r.whenIdle()
+    assert.deepEqual(await r.judge(a.laufId, 1, { ergebnis: 'selbst-uebernommen', kategorie: 'logik' }), { ok: true })
+    assert.equal(rec[0].anlaeufe, 2)
+  })
+
+  it('Urteil zu einem laufenden Häppchen: abgelehnt', async () => {
+    const r = ws(fakeHost('brav'))
+    const res: any = await r.dispatch(args())   // nicht abwarten
+    const u = await r.judge(res.laufId, 1, { ergebnis: 'uebernommen', kategorie: 'ui' })
+    assert.equal(u.ok, false)
+    await r.whenIdle()
+  })
+})

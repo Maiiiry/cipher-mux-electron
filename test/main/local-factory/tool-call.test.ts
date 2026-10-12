@@ -54,3 +54,21 @@ describe('handleLocalFactoryCall — accept-Fluss', () => {
     assert.equal(r.calls.dispatch[0].profil, 'mac')
   })
 })
+
+describe('handleLocalFactoryCall — Workshop-Urteil', () => {
+  it('local-workshop: accept geht an judge mit dem Urteil, nicht an accept', async () => {
+    const r = fakeRunner()
+    const got: unknown[] = []
+    const res = await handleLocalFactoryCall(
+      { ...r, async judge(...a: unknown[]) { got.push(a); return { ok: true } } } as any,
+      { accept: true, laufId: 'L1', haeppchen: 1, ergebnis: 'uebernommen', kategorie: 'ui' }, 'local-workshop')
+    assert.equal(res.isError, false)
+    assert.deepEqual(got, [['L1', 1, { ergebnis: 'uebernommen', kategorie: 'ui', notiz: undefined }]])
+    assert.equal(r.calls.accept.length, 0)
+  })
+  it('local-factory: accept bleibt accept', async () => {
+    const r = fakeRunner()
+    await handleLocalFactoryCall(r, { accept: true, laufId: 'L1', haeppchen: 1 })
+    assert.equal(r.calls.accept.length, 1)
+  })
+})

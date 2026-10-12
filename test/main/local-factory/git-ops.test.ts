@@ -6,7 +6,7 @@ import * as path from 'path'
 import { execFileSync } from 'child_process'
 import {
   runShell, dirtyFiles, headCommit, commitPaths, commitAll, changedSince,
-  checksums, savePatchAndReset, toRepoRelative, currentBranch, loginShell,
+  checksums, savePatchAndReset, toRepoRelative, currentBranch, loginShell, diffStat,
 } from '../../../src/main/local-factory/git-ops'
 
 let repo: string
@@ -144,6 +144,15 @@ describe('git-ops', () => {
     assert.equal(toRepoRelative('/p', '/p/test/x.ts'), 'test/x.ts')
     assert.equal(toRepoRelative('/p', 'test/x.ts'), 'test/x.ts')
     assert.equal(toRepoRelative('/p', './test/x.ts'), 'test/x.ts')
+  })
+})
+
+describe('diffStat', () => {
+  it('zählt Dateien und geänderte Zeilen zwischen zwei Commits', async () => {
+    const base = await headCommit(repo)
+    fs.writeFileSync(path.join(repo, 'b.txt'), 'x\ny\n'); git('add', '.'); git('commit', '-qm', 'b')
+    const head = git('rev-parse', 'HEAD')
+    assert.deepEqual(await diffStat(repo, base, head), { dateien: 1, zeilen: 2 })
   })
 })
 

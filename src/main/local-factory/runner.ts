@@ -5,16 +5,18 @@ import { ulid } from 'ulidx'
 import { validateAuftrag, buildAuftragMd, type AuftragInput } from './auftrag'
 import { decideGate, type GateResult } from './gate'
 import {
-  newLauf, beginVersuch, endVersuch, countWeckruf, markAbgenommen,
+  newLauf, beginVersuch, endVersuch, countWeckruf, markAbgenommen, markBeurteilt,
   loadLauf, saveLauf, abortRunning, MAX_VERSUCHE, type Lauf,
 } from './lauf'
 import { classifyWorker, IDLE_SIGNAL_FILENAME } from './worker-done'
 import {
   runShell, dirtyFiles, headCommit, commitPaths, commitAll, changedSince,
-  checksums, savePatchAndReset, toRepoRelative, isRepoRoot, currentBranch,
+  checksums, savePatchAndReset, toRepoRelative, isRepoRoot, currentBranch, diffStat,
 } from './git-ops'
 import { PROTECTED_PATHS_FILENAME } from '../session/entity-boundaries'
 import { createWorkerLock, type WorkerLock } from './worker-lock'
+import { validateUrteil, buildBilanzZeile, type Urteil } from './bilanz'
+import type { BilanzSink } from './bilanz-sink'
 
 /**
  * Der Läufer (Spec §7). Kein Modell: er startet, wartet, prüft und weckt.
@@ -63,6 +65,10 @@ export interface RunnerOpts {
   workerLock?: WorkerLock
   /** Schlüssel der Sperre (Workspace). */
   workspaceKey?: string
+  /** Senke für Urteile (nur local-workshop). Ohne sie bleibt ein Urteil ohne Bilanz-Zeile. */
+  bilanz?: BilanzSink
+  /** Workspace für die Bilanz-Zeile; null = ungebunden. */
+  workspaceId?: string | null
 }
 
 export interface DispatchArgs extends AuftragInput {
@@ -99,7 +105,7 @@ interface Attempt {
 interface GateRecord extends GateResult { testOutput: string }
 
 export class LocalFactoryRunner {
-  private readonly o: Required<Omit<RunnerOpts, 'host' | 'laufDir'>> & Pick<RunnerOpts, 'host' | 'laufDir'>
+  private readonly o: Required<Omit<RunnerOpts, 'host' | 'laufDir' | 'bilanz' | 'workspaceId'>> & Pick<RunnerOpts, 'host' | 'laufDir' | 'bilanz' | 'workspaceId'>
   private running: Promise<void> = Promise.resolve()
   private busy = false
 
@@ -145,6 +151,27 @@ export class LocalFactoryRunner {
       }
     }
     saveLauf(f, next)
+    return { ok: true }
+  }
+
+  /** Urteil des Workshops: Lauf markieren, Bilanz-Zeile schreiben (Spec 2026-10-12 §5). */
+  async judge(laufId: string, nummer: number, u: Partial<Urteil>): Promise<AcceptResult> {
+    const errs = validateUrteil(u)
+    if (errs.length) return { ok: false, error: `Urteil ungültig: ${errs.join('; ')}` }
+    if (!LAUF_ID.test(laufId)) return { ok: false, error: 'laufId ungültig.' }
+    const f = this.laufFile(laufId)
+    const lauf = loadLauf(f)
+    if (!lauf) return { ok: false, error: `Lauf ${laufId} unbekannt.` }
+    const next = markBeurteilt(lauf, nummer)
+    if (next === lauf) {
+      const h = lauf.haeppchen.find(x => x.nummer === nummer)
+      return { ok: false, error: h ? `Häppchen #${nummer} ist nicht zu beurteilen (Status ${h.status}).` : `Häppchen #${nummer} gibt es nicht.` }
+    }
+    saveLauf(f, next)
+    const h = next.haeppchen.find(x => x.nummer === nummer)!
+    await this.o.bilanz?.record(buildBilanzZeile(next, nummer, u as Urteil, {
+      now: new Date(this.o.now()).toISOString(), workspaceId: this.o.workspaceId ?? null, mitTest: h.mitTest ?? true,
+    }))
     return { ok: true }
   }
 
@@ -257,7 +284,7 @@ export class LocalFactoryRunner {
       lauf0 = abortRunning(lauf0)
       saveLauf(laufPfad, lauf0)
     }
-    const begun = beginVersuch(lauf0, { nummer: args.haeppchen, ziel: args.ziel, now: this.o.now() })
+    const begun = beginVersuch(lauf0, { nummer: args.haeppchen, ziel: args.ziel, now: this.o.now(), mitTest: prot.length > 0 })
     if ('error' in begun) return { ok: false, error: begun.error }
 
     const offeneTests = dirty.filter(f => prot.includes(f))
@@ -382,6 +409,7 @@ export class LocalFactoryRunner {
 
     let commit: string | undefined
     let patchPfad: string | undefined
+    let stat: { dateien: number; zeilen: number } | undefined
     if (branchGewechselt) {
       started.settled = true
     } else if (gate.verdict === 'gruen') {
@@ -390,6 +418,8 @@ export class LocalFactoryRunner {
       // Versuch entschieden; ein Fehler in headCommit darf nicht zum Reset führen.
       started.settled = true
       commit = await headCommit(projekt)
+      // Messwert für die Bilanz; fehlt er, fehlt er — der Versuch ist schon entschieden.
+      try { stat = await diffStat(projekt, a.base, commit) } catch { /* */ }
     } else {
       patchPfad = path.join(dir, `versuch-${a.nummer}-${a.versuch}.patch`)
       await savePatchAndReset(projekt, a.base, patchPfad)
@@ -399,6 +429,7 @@ export class LocalFactoryRunner {
     let lauf = loadLauf(a.laufPfad) ?? newLauf(a.laufId, projekt, this.o.now())
     lauf = endVersuch(lauf, a.nummer, {
       verdict: gate.verdict, gatePfad, ...(patchPfad ? { patchPfad } : {}), ...(commit ? { commit } : {}),
+      ...(stat ? { dateien: stat.dateien, diffZeilen: stat.zeilen } : {}),
       ...(tokens ? { tokensAmEnde: tokens } : {}),
       ...(profil ? { profil } : {}), ...(modell ? { modell } : {}),
     }, this.o.now())
