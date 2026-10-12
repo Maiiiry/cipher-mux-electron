@@ -29,7 +29,8 @@ import {
 import { parseOpenCodeModels } from '../adapter-models'
 import { runCommand } from '../../util/exec-util'
 import {
-  readLocalWorkerConfig,
+  readLocalProfileFile,
+  resolveLocalWorkerProfile,
   buildLocalProviderBlock,
   localModelSpec,
   LOCAL_PROVIDER_ID,
@@ -118,8 +119,8 @@ import {
 /** Minimale Sicht auf die Agent-Konfiguration. Spiegelbild zu CodexConfigReader. */
 export interface OpenCodeConfigReader {
   getSkipPermissions(): boolean
-  /** Lokales Modell für `local-worker`, oder null. Spec 2026-10-09 §6. */
-  getLocalWorker?(): LocalWorkerConfig | null
+  /** Lokales Modell für `local-worker`, aus der Profil-Datei des Run-Verzeichnisses. Spec 2026-10-12 §4.4. */
+  getLocalWorker?(runDir: string): LocalWorkerConfig | null
 }
 
 const defaultConfigReader: OpenCodeConfigReader = {
@@ -129,10 +130,15 @@ const defaultConfigReader: OpenCodeConfigReader = {
     const { configStore } = require('../../config/config-store')
     return configStore.get('agent').skipPermissions
   },
-  getLocalWorker(): LocalWorkerConfig | null {
+  getLocalWorker(runDir: string): LocalWorkerConfig | null {
+    // Die Datei schreibt der Worker-Host vor dem Start. Fehlt sie (Worker von Hand
+    // gestartet), gilt das Standardprofil -- wie vor den Profilen.
+    const fromFile = readLocalProfileFile(runDir)
+    if (fromFile) return fromFile.cfg
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { configStore } = require('../../config/config-store')
-    return readLocalWorkerConfig(configStore.get('agent')?.localWorker ?? null)
+    const r = resolveLocalWorkerProfile(configStore.get('agent') ?? {})
+    return r.ok ? r.cfg : null
   },
 }
 
@@ -415,7 +421,7 @@ export class OpenCodeAdapter implements AgentAdapter {
       }
 
       const localCfg =
-        ctx.entityId === LOCAL_WORKER_ENTITY_ID ? (this.configReader.getLocalWorker?.() ?? null) : null
+        ctx.entityId === LOCAL_WORKER_ENTITY_ID ? (this.configReader.getLocalWorker?.(ctx.projectPath) ?? null) : null
       const local = localCfg
         ? { provider: buildLocalProviderBlock(localCfg), model: localModelSpec(localCfg) }
         : null

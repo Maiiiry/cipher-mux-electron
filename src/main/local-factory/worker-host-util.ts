@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as http from 'node:http'
 import * as https from 'node:https'
-import { readLocalWorkerConfig } from './local-provider'
+import { resolveLocalWorkerProfile, type ProfileResult } from './local-provider'
 
 /**
  * Reine Hilfen des Hosts, ohne Electron-Abhängigkeit — damit sie sich
@@ -61,12 +61,15 @@ export function probeEndpoint(url: string, timeoutMs = 5000): Promise<ProbeResul
  * skipPermissions wird nicht pro Rolle still erzwungen, sondern benannt.
  */
 export async function checkWorkerReady(deps: {
-  localWorker: unknown
+  /** Alte Form (ein einzelnes agent.localWorker); neu: `resolved`. */
+  localWorker?: unknown
+  resolved?: ProfileResult
   skipPermissions: boolean
   probe: (url: string) => Promise<ProbeResult>
 }): Promise<string | null> {
-  const cfg = readLocalWorkerConfig(deps.localWorker)
-  if (!cfg) return 'Local Worker nicht konfiguriert (agent.localWorker fehlt oder ist unvollständig)'
+  const r = deps.resolved ?? resolveLocalWorkerProfile({ localWorker: deps.localWorker })
+  if (!r.ok) return r.error
+  const cfg = r.cfg
   if (!deps.skipPermissions) return 'Worker braucht agent.skipPermissions — sonst hängt opencode im Rückfrage-Dialog'
   const url = endpointProbeUrl(cfg.baseUrl)
   const p = await deps.probe(url)

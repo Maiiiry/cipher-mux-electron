@@ -7,6 +7,8 @@
  * Rechnung gegen eine bekannte Zahl statt gegen OPENCODE_FALLBACK_CONTEXT_WINDOW.
  */
 
+import * as fs from 'fs'
+import * as path from 'path'
 import type { LocalWorkerConfig } from '../../shared/types'
 
 export { LocalWorkerConfig } from '../../shared/types'
@@ -103,4 +105,26 @@ export function resolveLocalWorkerProfile(agent: AgentProfileSource, name?: stri
   return cfg
     ? { ok: true, profil: wanted, cfg }
     : { ok: false, error: `Profil „${wanted}" ist unvollständig (baseUrl, model, contextWindow, maxOutputTokens).` }
+}
+
+/**
+ * Das Profil eines Worker-Starts, im Run-Verzeichnis des Workers. Eine Datei
+ * statt eines Startparameters, weil Adapter und Bilanz dieselbe Quelle lesen
+ * müssen: was der Worker bekam, ist, was gezählt wird.
+ */
+export const LOCAL_PROFILE_FILENAME = 'local-profile.json'
+
+export function writeLocalProfileFile(runDir: string, p: { profil: string; cfg: LocalWorkerConfig }): void {
+  fs.mkdirSync(runDir, { recursive: true })
+  fs.writeFileSync(path.join(runDir, LOCAL_PROFILE_FILENAME), JSON.stringify(p, null, 2) + '\n', 'utf-8')
+}
+
+export function readLocalProfileFile(runDir: string): { profil: string; cfg: LocalWorkerConfig } | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(runDir, LOCAL_PROFILE_FILENAME), 'utf-8')) as Record<string, unknown>
+    const cfg = readLocalWorkerConfig(raw.cfg)
+    return cfg && typeof raw.profil === 'string' ? { profil: raw.profil, cfg } : null
+  } catch {
+    return null
+  }
 }

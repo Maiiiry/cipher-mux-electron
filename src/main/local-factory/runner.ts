@@ -26,8 +26,15 @@ export interface WorkerHost {
    * Bereitschaft (Ruling R15): null = bereit, sonst der Grund, warum nicht —
    * nicht konfiguriert, skipPermissions aus, Endpunkt antwortet nicht mit 2xx.
    */
-  workerReady(): Promise<string | null>
-  startFreshWorker(projekt: string): Promise<{ runDir: string; sessionId: string }>
+  workerReady(profil?: string): Promise<string | null>
+  /**
+   * Schreibt das aufgelöste Profil ins Run-Verzeichnis, bevor der Adapter es liest.
+   * profil/modell optional, damit Hosts ohne Profile gültig bleiben.
+   */
+  startFreshWorker(
+    projekt: string,
+    profil?: string,
+  ): Promise<{ runDir: string; sessionId: string; profil?: string; modell?: string }>
   sendToWorker(sessionId: string, line: string): Promise<void>
   stopWorker(sessionId: string): Promise<void>
   lastActivityAt(sessionId: string): number

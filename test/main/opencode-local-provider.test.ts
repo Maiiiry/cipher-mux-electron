@@ -8,7 +8,7 @@ import {
 } from '../../src/main/agent/adapters/opencode'
 import { OPENCODE_BOUNDARY_PLUGIN_FILENAME, PROTECTED_PATHS_FILENAME } from '../../src/main/session/entity-boundaries'
 import { IDLE_PLUGIN_FILENAME } from '../../src/main/local-factory/worker-done'
-import { buildLocalProviderBlock, localModelSpec } from '../../src/main/local-factory/local-provider'
+import { buildLocalProviderBlock, localModelSpec, writeLocalProfileFile, readLocalProfileFile } from '../../src/main/local-factory/local-provider'
 
 const entry = buildOpenCodeMcpEntry('http://127.0.0.1:3100/mcp', 'k', null, 'local-worker')
 const cfg = { baseUrl: 'http://h/v1', model: 'qwen', contextWindow: 1000, maxOutputTokens: 100 }
@@ -68,6 +68,25 @@ describe('OpenCodeAdapter.postLaunchInjection — Verdrahtung des lokalen Worker
       assert.equal(c2.model, undefined)
       assert.equal(fs.existsSync(idle), false)
       assert.ok(!c2.plugin?.some(p => p.endsWith(IDLE_PLUGIN_FILENAME)))
+    } finally {
+      fs.rmSync(runDir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('OpenCodeAdapter — Profil-Datei des Run-Verzeichnisses', () => {
+  it('nimmt Provider und Modell aus der Profil-Datei', async () => {
+    const runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-prof-'))
+    try {
+      writeLocalProfileFile(runDir, { profil: 'mac', cfg: { baseUrl: 'http://127.0.0.1:11433/v1', model: 'm-mac', contextWindow: 65536, maxOutputTokens: 16384 } })
+      const a = new OpenCodeAdapter({
+        getSkipPermissions: () => true,
+        getLocalWorker: (dir: string) => readLocalProfileFile(dir)?.cfg ?? null,
+      })
+      await a.postLaunchInjection({ projectPath: runDir, entityId: 'local-worker', mcpUrl: 'http://127.0.0.1:3100/mcp', mcpApiKey: 'k', sessionId: 's', workspaceId: 'ws' })
+      const written = JSON.parse(fs.readFileSync(path.join(runDir, OPENCODE_CONFIG_FILENAME), 'utf-8'))
+      assert.equal(written.model, 'cipher-local/m-mac')
+      assert.equal(written.provider['cipher-local'].options.baseURL, 'http://127.0.0.1:11433/v1')
     } finally {
       fs.rmSync(runDir, { recursive: true, force: true })
     }

@@ -1,7 +1,10 @@
 // test/main/local-factory/local-profiles.test.ts
 import { describe, it } from 'node:test'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import * as assert from 'node:assert/strict'
-import { resolveLocalWorkerProfile, DEFAULT_PROFILE, readLocalWorkerConfig, buildLocalProviderBlock } from '../../../src/main/local-factory/local-provider'
+import { resolveLocalWorkerProfile, DEFAULT_PROFILE, readLocalWorkerConfig, buildLocalProviderBlock, writeLocalProfileFile, readLocalProfileFile, LOCAL_PROFILE_FILENAME } from '../../../src/main/local-factory/local-provider'
 
 const dgx = { baseUrl: 'http://h:8000/v1', model: 'qwen3.8-27b', contextWindow: 131072, maxOutputTokens: 16384 }
 const mac = { baseUrl: 'http://127.0.0.1:11433/v1', model: 'qwen38-27b-64k', contextWindow: 65536, maxOutputTokens: 16384 }
@@ -42,5 +45,19 @@ describe('resolveLocalWorkerProfile', () => {
     const cfg = readLocalWorkerConfig({ ...mac, modelOptions: { reasoning_effort: 'none' } })!
     assert.deepEqual((buildLocalProviderBlock(cfg) as any).models[mac.model].options, { reasoning_effort: 'none' })
     assert.equal(readLocalWorkerConfig({ ...mac, modelOptions: 'x' })!.modelOptions, undefined)
+  })
+})
+
+describe('Profil-Datei im Run-Verzeichnis', () => {
+  it('rund: geschrieben = gelesen', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lp-'))
+    writeLocalProfileFile(dir, { profil: 'mac', cfg: mac })
+    assert.deepEqual(readLocalProfileFile(dir), { profil: 'mac', cfg: mac })
+  })
+  it('fehlt oder kaputt → null, nicht werfen', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lp-'))
+    assert.equal(readLocalProfileFile(dir), null)
+    fs.writeFileSync(path.join(dir, LOCAL_PROFILE_FILENAME), '{kaputt')
+    assert.equal(readLocalProfileFile(dir), null)
   })
 })
