@@ -54,6 +54,7 @@ import {
 /** Role directories — a workspace cell pointing here is a role, not a project. */
 const ENTITIES_ROOT = path.join(os.homedir(), '.config', 'cipher-mux', 'entities')
 import type { WorkspaceSectionSource } from './folder-session'
+import { generateLocalWorkshopPreset } from '../local-factory/workshop-preset'
 import { generateLocalFactoryPreset, generateLocalWorkerPreset, LOCAL_WORKER_DISPATCH_TOOL } from '../local-factory/presets'
 import type { PaneSnapshot } from '../../shared/terminal-resync'
 
@@ -167,7 +168,7 @@ function getMcpPermissionsForEntity(entityId: EntityId): string[] {
       perms.push(`${MCP_PREFIX}kickoff_complete`, 'Bash(tmux:*)')
       break
   }
-  if (entityId === 'local-factory') {
+  if (entityId === 'local-factory' || entityId === 'local-workshop') {
     perms.push(`${MCP_PREFIX}${LOCAL_WORKER_DISPATCH_TOOL}`)
   }
   if (entityId === COMPANION_ENTITY_ID) {
@@ -1255,6 +1256,10 @@ export class SessionManager extends EventEmitter {
         if (!fs.existsSync(presetMdPath)) {
           fs.writeFileSync(presetMdPath, generateLocalFactoryPreset(), 'utf-8')
         }
+      } else if (config.id === 'local-workshop') {
+        if (!fs.existsSync(presetMdPath)) {
+          fs.writeFileSync(presetMdPath, generateLocalWorkshopPreset(), 'utf-8')
+        }
       } else if (config.id === 'local-worker') {
         // Bei jedem Start neu: der Worker hat keine Handarbeit zu bewahren,
         // und ein veralteter Rollentext wäre still wirksam.
@@ -1506,6 +1511,8 @@ export class SessionManager extends EventEmitter {
       sessionName: config.displayName,
       isWorkshop: entityId === 'workshop',
       isCyberFactory: entityId === 'cyber-factory',
+      entityId,
+      workDir: this.sessions.get(sessionId)?.projectPath ?? undefined,
       ...(runtime.model ? { model: runtime.model } : {}),
     })
     const cmdStr = [launchCmd.cmd, ...launchCmd.args].join(' ')

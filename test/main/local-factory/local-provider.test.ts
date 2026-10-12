@@ -5,6 +5,7 @@ import {
   buildLocalProviderBlock,
   localModelSpec,
   LOCAL_PROVIDER_ID,
+  resolveLocalWorkerProfile,
 } from '../../../src/main/local-factory/local-provider'
 
 const ok = { baseUrl: 'http://h:8000/v1', model: 'qwen', contextWindow: 131072, maxOutputTokens: 16384 }
@@ -38,5 +39,13 @@ describe('buildLocalProviderBlock', () => {
   })
   it('localModelSpec ist anbieter/modell', () => {
     assert.equal(localModelSpec(ok), `${LOCAL_PROVIDER_ID}/qwen`)
+  })
+})
+
+describe('resolveLocalWorkerProfile — Prototyp-Namen (Final-Fix 8)', () => {
+  it('Profilname „toString“ ist unbekannt', () => {
+    const r = resolveLocalWorkerProfile({ localWorkerProfiles: { mac: ok } }, 'toString')
+    assert.equal(r.ok, false)
+    assert.match((r as { error: string }).error, /unbekannt/)
   })
 })

@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import {
-  newLauf, beginVersuch, endVersuch, markAbgenommen, abortRunning, countWeckruf,
+  newLauf, beginVersuch, endVersuch, markAbgenommen, markBeurteilt, abortRunning, countWeckruf,
   parseLauf, loadLauf, saveLauf, MAX_VERSUCHE, type Lauf,
 } from '../../../src/main/local-factory/lauf'
 
@@ -144,5 +144,27 @@ describe('Lauf — Branch', () => {
     assert.equal(parseLauf({ id: 'L', projekt: '/p', branch: 'main' })!.branch, 'main')
     assert.equal(parseLauf({ id: 'L', projekt: '/p' })!.branch, undefined)
     assert.equal(parseLauf({ id: 'L', projekt: '/p', branch: 42 })!.branch, undefined)
+  })
+})
+
+describe('Lauf — Urteil', () => {
+  it('markBeurteilt: grün-wartend und eskaliert ja, laufend und beurteilt nein', () => {
+    let l = ok(beginVersuch(newLauf('L', '/p', 0), { ziel: 'a', now: 1, mitTest: true })).lauf
+    assert.equal(l.haeppchen[0].mitTest, true)
+    assert.equal(markBeurteilt(l, 1), l)
+    l = endVersuch(l, 1, { verdict: 'gruen' }, 2)
+    const b = markBeurteilt(l, 1)
+    assert.equal(b.haeppchen[0].status, 'beurteilt')
+    assert.equal(markBeurteilt(b, 1), b)
+  })
+  it('beginVersuch lehnt ein beurteiltes Häppchen ab', () => {
+    let l = ok(beginVersuch(newLauf('L', '/p', 0), { ziel: 'a', now: 1 })).lauf
+    l = markBeurteilt(endVersuch(l, 1, { verdict: 'gruen' }, 2), 1)
+    const r = beginVersuch(l, { nummer: 1, ziel: 'a', now: 3 })
+    assert.deepEqual(r, { error: 'Häppchen #1 ist schon beurteilt.' })
+  })
+  it('parseLauf kennt den Status beurteilt', () => {
+    const l = parseLauf({ id: 'L', projekt: '/p', haeppchen: [{ nummer: 1, ziel: 'a', status: 'beurteilt', versuche: [] }] })!
+    assert.equal(l.haeppchen[0].status, 'beurteilt')
   })
 })

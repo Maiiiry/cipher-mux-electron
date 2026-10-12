@@ -17,6 +17,7 @@ import { generateWorkshopClaudeMd } from '../../src/main/workshop/workshop-templ
 import { generateCyberFactoryClaudeMd } from '../../src/main/cyber-factory/cyber-factory-template'
 import { generateAuditClaudeMd } from '../../src/main/audit/audit-template'
 import { generateVoiceRelayClaudeMd } from '../../src/main/session/voice-relay-template'
+import { generateLocalWorkshopPreset } from '../../src/main/local-factory/workshop-preset'
 
 const mcp = { mcpHost: '127.0.0.1', mcpPort: 3100, mcpApiKey: 'k' }
 const rendered: Record<string, () => string> = {
@@ -29,6 +30,7 @@ const rendered: Record<string, () => string> = {
   'cyber-factory': () => generateCyberFactoryClaudeMd(mcp),
   audit: generateAuditClaudeMd,
   'voice-relay': generateVoiceRelayClaudeMd,
+  'local-workshop': generateLocalWorkshopPreset,
 }
 
 describe('Rollen-Anweisungen: keine maskierten Backticks', () => {

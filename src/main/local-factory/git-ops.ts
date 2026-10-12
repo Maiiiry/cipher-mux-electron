@@ -158,3 +158,14 @@ export async function savePatchAndReset(projekt: string, base: string, patchFile
   await git(projekt, ['reset', '-q', '--hard', base])
   await git(projekt, ['clean', '-fdq'])
 }
+
+/** Umfang eines Commits für die Bilanz: Dateien und Zeilen (hinzu + weg). Binärdateien zählen als Datei, nicht als Zeilen. */
+export async function diffStat(projekt: string, from: string, to: string): Promise<{ dateien: number; zeilen: number }> {
+  const out = lines(await git(projekt, [...NO_QUOTE, 'diff', '--numstat', '--no-renames', from, to]))
+  let zeilen = 0
+  for (const l of out) {
+    const [add, del] = l.split('\t')
+    zeilen += (Number(add) || 0) + (Number(del) || 0)
+  }
+  return { dateien: out.length, zeilen }
+}

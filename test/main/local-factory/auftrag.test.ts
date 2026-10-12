@@ -73,3 +73,24 @@ describe('buildAuftragMd', () => {
     assert.ok(aCount < MAX_GATE_OUTPUT_CHARS * 2, `md sollte weniger als ${MAX_GATE_OUTPUT_CHARS * 2} 'A's enthalten, aber ${aCount} gefunden`)
   })
 })
+
+describe('validateAuftrag ohne Testpflicht', () => {
+  it('testPflicht false: leere geschuetzteTests ist gültig, testBefehl bleibt Pflicht', () => {
+    const x = { ...a, geschuetzteTests: [] }
+    assert.deepEqual(validateAuftrag(x, { testPflicht: false }), [])
+    assert.deepEqual(validateAuftrag({ ...x, testBefehl: ' ' }, { testPflicht: false }), ['testBefehl: leer'])
+  })
+  it('ohne Abnahmetests fehlt der Abschnitt „gesperrt“ im Auftrag', () => {
+    const md = buildAuftragMd({ ...a, geschuetzteTests: [] }, { nummer: 1, versuch: 1 })
+    assert.doesNotMatch(md, /gesperrt/)
+  })
+})
+
+describe('validateAuftrag — geschuetzteTests kein Array (Final-Fix 3)', () => {
+  it('Factory: Meldung wie vor dem Workshop', () => {
+    assert.ok(validateAuftrag({ ...a, geschuetzteTests: undefined as never }).includes('geschuetzteTests: mindestens ein Abnahmetest'))
+  })
+  it('testPflicht false: „Liste erforderlich“', () => {
+    assert.ok(validateAuftrag({ ...a, geschuetzteTests: undefined as never }, { testPflicht: false }).includes('geschuetzteTests: Liste erforderlich'))
+  })
+})

@@ -15,6 +15,7 @@ function fakeRunner(acceptRes: AcceptResult = { ok: true }) {
       calls.accept.push([laufId, n])
       return acceptRes
     },
+    async judge(): Promise<AcceptResult> { return { ok: true } },
   }
 }
 
@@ -46,5 +47,29 @@ describe('handleLocalFactoryCall — accept-Fluss', () => {
     const res = await handleLocalFactoryCall(r, { ziel: '' })
     assert.equal(r.calls.dispatch.length, 1)
     assert.equal(res.isError, true)
+  })
+
+  it('profil wird an dispatch durchgereicht', async () => {
+    const r = fakeRunner()
+    await handleLocalFactoryCall(r, { projekt: '/p', profil: 'mac' })
+    assert.equal(r.calls.dispatch[0].profil, 'mac')
+  })
+})
+
+describe('handleLocalFactoryCall — Workshop-Urteil', () => {
+  it('local-workshop: accept geht an judge mit dem Urteil, nicht an accept', async () => {
+    const r = fakeRunner()
+    const got: unknown[] = []
+    const res = await handleLocalFactoryCall(
+      { ...r, async judge(...a: unknown[]) { got.push(a); return { ok: true } } } as any,
+      { accept: true, laufId: 'L1', haeppchen: 1, ergebnis: 'uebernommen', kategorie: 'ui' }, 'local-workshop')
+    assert.equal(res.isError, false)
+    assert.deepEqual(got, [['L1', 1, { ergebnis: 'uebernommen', kategorie: 'ui', notiz: undefined }]])
+    assert.equal(r.calls.accept.length, 0)
+  })
+  it('local-factory: accept bleibt accept', async () => {
+    const r = fakeRunner()
+    await handleLocalFactoryCall(r, { accept: true, laufId: 'L1', haeppchen: 1 })
+    assert.equal(r.calls.accept.length, 1)
   })
 })

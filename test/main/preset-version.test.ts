@@ -106,7 +106,7 @@ describe('PRESET_TEMPLATES', () => {
     // nicht zurueckfallen. Sie hier zu fuehren hiesse, nach etwas zu suchen,
     // das es nicht geben kann.
     const ids = Object.keys(PRESET_TEMPLATES).sort()
-    assert.deepEqual(ids, ['companion', 'debugger', 'ideation-partner', 'refinement'])
+    assert.deepEqual(ids, ['companion', 'debugger', 'ideation-partner', 'local-workshop', 'refinement'])
     assert.ok(!ids.includes('audit'))
     assert.ok(!ids.includes('voice-relay'))
   })

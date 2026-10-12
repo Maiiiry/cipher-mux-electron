@@ -22,7 +22,7 @@ const SRC = path.join(__dirname, '../../src/main')
 function registeredNames(): Set<string> {
   const names = new Set<string>()
   const fake = { registerTool: (n: string) => { names.add(n) } } as unknown as McpServer
-  for (const entityId of [null, 'local-factory']) {
+  for (const entityId of [null, 'local-factory', 'local-workshop']) {
     registerTools(fake, { sessionManager: {}, entityId } as unknown as ToolContext)
   }
   return names

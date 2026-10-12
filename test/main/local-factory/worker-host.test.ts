@@ -3,6 +3,7 @@ import * as assert from 'node:assert/strict'
 import {
   endpointProbeUrl, readUsageFile, probeEndpoint, checkWorkerReady, submitLine, type ProbeResult,
 } from '../../../src/main/local-factory/worker-host-util'
+import { resolveLocalWorkerProfile } from '../../../src/main/local-factory/local-provider'
 import * as http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import * as fs from 'fs'
@@ -94,5 +95,26 @@ describe('submitLine', () => {
     const texts: string[] = []
     await submitLine(async k => { texts.push(k) }, async () => {}, 'a\r\nb\n', async () => {})
     assert.deepEqual(texts, ['a b'])
+  })
+})
+
+describe('checkWorkerReady mit Profil', () => {
+  it('prüft den Endpunkt des gewählten Profils', async () => {
+    const seen: string[] = []
+    const agent = { localWorkerProfiles: { a: okCfg, b: { ...okCfg, baseUrl: 'http://mac:11433/v1' } }, localWorkerDefaultProfile: 'a' }
+    await checkWorkerReady({
+      resolved: resolveLocalWorkerProfile(agent, 'b'), skipPermissions: true,
+      probe: async (u) => { seen.push(u); return { ok: true } as ProbeResult },
+    })
+    assert.deepEqual(seen, ['http://mac:11433/v1/models'])
+  })
+  it('unbekanntes Profil: Grund kommt durch, keine Probe', async () => {
+    let probed = false
+    const r = await checkWorkerReady({
+      resolved: resolveLocalWorkerProfile({ localWorker: okCfg }, 'mac'), skipPermissions: true,
+      probe: async () => { probed = true; return { ok: true } as ProbeResult },
+    })
+    assert.match(r!, /Profil „mac" unbekannt/)
+    assert.equal(probed, false)
   })
 })

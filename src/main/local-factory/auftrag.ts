@@ -21,7 +21,7 @@ export const MAX_GATE_OUTPUT_CHARS = 6000
 
 const blank = (s: unknown): boolean => typeof s !== 'string' || s.trim() === ''
 
-export function validateAuftrag(a: AuftragInput): string[] {
+export function validateAuftrag(a: AuftragInput, opts: { testPflicht?: boolean } = {}): string[] {
   const errs: string[] = []
   if (blank(a.projekt) || !path.isAbsolute(a.projekt)) errs.push('projekt: absoluter Pfad erforderlich')
   if (blank(a.ziel)) errs.push('ziel: leer')
@@ -29,7 +29,11 @@ export function validateAuftrag(a: AuftragInput): string[] {
   if (blank(a.testBefehl)) errs.push('testBefehl: leer')
 
   // geschuetzteTests: Element-Validierung
-  if (!Array.isArray(a.geschuetzteTests) || a.geschuetzteTests.length === 0) {
+  // Der Workshop darf ohne Abnahmetest arbeiten (Testbefehl entscheidet); Elemente und Pfade prüft er trotzdem.
+  if (!Array.isArray(a.geschuetzteTests)) {
+    // Die Factory meldet wie vor dem Workshop; „Liste erforderlich“ nur dort, wo Tests optional sind.
+    errs.push(opts.testPflicht !== false ? 'geschuetzteTests: mindestens ein Abnahmetest' : 'geschuetzteTests: Liste erforderlich')
+  } else if (a.geschuetzteTests.length === 0 && opts.testPflicht !== false) {
     errs.push('geschuetzteTests: mindestens ein Abnahmetest')
   } else {
     for (let i = 0; i < a.geschuetzteTests.length; i++) {
@@ -95,7 +99,7 @@ export function buildAuftragMd(
     `## Ziel\n\n${a.ziel}`,
     `## Akzeptanzkriterium\n\n${a.akzeptanzkriterium}`,
     `## Dateien\n\n${list(a.dateien)}`,
-    `## Abnahmetests — gesperrt, bestehen statt ändern\n\n${list(a.geschuetzteTests)}`,
+    ...(a.geschuetzteTests.length ? [`## Abnahmetests — gesperrt, bestehen statt ändern\n\n${list(a.geschuetzteTests)}`] : []),
     `## Testbefehl (im Projekt ausführen)\n\n\`\`\`\n${a.testBefehl}\n\`\`\``,
     `## Nicht-Ziele\n\n${list(a.nichtZiele)}`,
   ]

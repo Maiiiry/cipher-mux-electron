@@ -11,7 +11,7 @@ import * as path from 'path'
 
 export const MAX_VERSUCHE = 2
 
-export type HaeppchenStatus = 'laeuft' | 'wartet' | 'abgenommen' | 'eskaliert' | 'abgebrochen'
+export type HaeppchenStatus = 'laeuft' | 'wartet' | 'abgenommen' | 'eskaliert' | 'abgebrochen' | 'beurteilt'
 type Verdict = 'gruen' | 'rot' | 'haengt'
 
 export interface Versuch {
@@ -23,6 +23,12 @@ export interface Versuch {
   patchPfad?: string
   commit?: string
   tokensAmEnde?: { input: number; output: number }
+  /** Profil und Modell, die der Worker bekam (aus local-profile.json). Spec 2026-10-12 §5. */
+  profil?: string
+  modell?: string
+  /** Umfang des grünen Commits (Bilanz). Fehlt, wenn die Messung scheiterte. */
+  dateien?: number
+  diffZeilen?: number
 }
 
 export interface Haeppchen {
@@ -30,6 +36,8 @@ export interface Haeppchen {
   ziel: string
   status: HaeppchenStatus
   versuche: Versuch[]
+  /** Gab es beim ersten Versuch einen Abnahmetest? Für die Bilanz. */
+  mitTest?: boolean
 }
 
 export interface Lauf {
@@ -58,7 +66,7 @@ const replaceH = (lauf: Lauf, h: Haeppchen): Lauf => ({
 
 export function beginVersuch(
   lauf: Lauf,
-  opts: { nummer?: number; ziel: string; now: number },
+  opts: { nummer?: number; ziel: string; now: number; mitTest?: boolean },
 ): { lauf: Lauf; nummer: number; versuch: number } | { error: string } {
   if (lauf.haeppchen.some(h => h.status === 'laeuft')) {
     return { error: 'Es läuft bereits ein Worker. Nacheinander (Spec E2).' }
@@ -67,6 +75,7 @@ export function beginVersuch(
     const nummer = lauf.haeppchen.reduce((m, h) => Math.max(m, h.nummer), 0) + 1
     const h: Haeppchen = {
       nummer, ziel: opts.ziel, status: 'laeuft', versuche: [{ nr: 1, gestartet: opts.now }],
+      ...(opts.mitTest !== undefined ? { mitTest: opts.mitTest } : {}),
     }
     return { lauf: { ...lauf, haeppchen: [...lauf.haeppchen, h] }, nummer, versuch: 1 }
   }
@@ -76,6 +85,7 @@ export function beginVersuch(
     return { error: `Häppchen #${h.nummer} ist eskaliert (${MAX_VERSUCHE} Versuche). An den User melden.` }
   }
   if (h.status === 'abgenommen') return { error: `Häppchen #${h.nummer} ist schon abgenommen.` }
+  if (h.status === 'beurteilt') return { error: `Häppchen #${h.nummer} ist schon beurteilt.` }
   if (h.versuche.length >= MAX_VERSUCHE) {
     return { error: `Häppchen #${h.nummer} hat ${MAX_VERSUCHE} Versuche hinter sich. An den User melden.` }
   }
@@ -110,6 +120,17 @@ export function markAbgenommen(lauf: Lauf, nummer: number): Lauf {
   return replaceH(lauf, { ...h, status: 'abgenommen' })
 }
 
+/**
+ * Urteil des Workshops (Spec 2026-10-12 §5). Anders als `markAbgenommen` auch für
+ * ein ausgeschöpftes Häppchen — „selbst übernommen" ist ein Urteil über einen
+ * roten Lauf. Nie für ein laufendes oder schon beurteiltes.
+ */
+export function markBeurteilt(lauf: Lauf, nummer: number): Lauf {
+  const h = lauf.haeppchen.find(x => x.nummer === nummer)
+  if (!h || (h.status !== 'wartet' && h.status !== 'eskaliert')) return lauf
+  return replaceH(lauf, { ...h, status: 'beurteilt' })
+}
+
 export function countWeckruf(lauf: Lauf): Lauf {
   return { ...lauf, weckrufe: lauf.weckrufe + 1 }
 }
@@ -121,7 +142,7 @@ export function abortRunning(lauf: Lauf): Lauf {
   }
 }
 
-const STATUS: readonly HaeppchenStatus[] = ['laeuft', 'wartet', 'abgenommen', 'eskaliert', 'abgebrochen']
+const STATUS: readonly HaeppchenStatus[] = ['laeuft', 'wartet', 'abgenommen', 'eskaliert', 'abgebrochen', 'beurteilt']
 const num = (n: unknown, d: number): number => (typeof n === 'number' && Number.isFinite(n) ? n : d)
 
 /** Defensiv wie alles Persistierte: eine Datei aus einer älteren Fassung wird aufgefüllt. */
@@ -151,6 +172,7 @@ export function parseLauf(raw: unknown): Lauf | null {
       // Ohne Status weiß niemand, was daraus wurde — „abgebrochen" behauptet am wenigsten.
       status: STATUS.includes(h.status as HaeppchenStatus) ? (h.status as HaeppchenStatus) : 'abgebrochen',
       versuche,
+      ...(typeof h.mitTest === 'boolean' ? { mitTest: h.mitTest } : {}),
     })
   }
   return {

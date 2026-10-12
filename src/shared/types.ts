@@ -18,7 +18,7 @@ export type AdapterCapabilities = Record<AdapterFeature, boolean>
 // ─── Entity Framework ─────────────────────────────────────
 
 /** Well-known entity identifiers. Extensible via string for dynamic/scanned entities. */
-export type BuiltinEntityId = 'workshop' | 'cyber-factory' | 'launcher' | 'companion' | 'refinement' | 'voice-relay' | 'audit' | 'ideation-partner' | 'debugger' | 'testing-assistant' | 'bugreport' | 'local-factory' | 'local-worker'
+export type BuiltinEntityId = 'workshop' | 'cyber-factory' | 'launcher' | 'companion' | 'refinement' | 'voice-relay' | 'audit' | 'ideation-partner' | 'debugger' | 'testing-assistant' | 'bugreport' | 'local-factory' | 'local-worker' | 'local-workshop'
 export type EntityId = BuiltinEntityId | (string & {})
 
 /**
@@ -227,6 +227,8 @@ export interface LocalWorkerConfig {
   maxOutputTokens: number
   /** Optional timeout for requests in minutes. */
   timeoutMinutes?: number
+  /** Modelloptionen, unverändert an opencode (`provider.<id>.models.<m>.options`), z. B. `{ reasoning_effort: 'none' }`. */
+  modelOptions?: Record<string, unknown>
 }
 
 export interface AppConfig {
@@ -333,6 +335,14 @@ export interface AppConfig {
      * gilt als keiner. Kein Schlüssel hier.
      */
     localWorker: LocalWorkerConfig | null
+    /**
+     * Benannte Modellprofile für lokale Worker (Spec 2026-10-12 §4.4). Leer oder
+     * fehlend: `localWorker` ist das Profil `default`. Gelesen über
+     * `resolveLocalWorkerProfile`, nie direkt.
+     */
+    localWorkerProfiles?: Record<string, LocalWorkerConfig>
+    /** Profil, das ein Auftrag ohne `profil` bekommt. */
+    localWorkerDefaultProfile?: string
   }
   /** LLM provider configuration (Ollama, external APIs). */
   llm: {

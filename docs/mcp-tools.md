@@ -6,10 +6,10 @@ single connection is offered all 68. Most are available to any session with MCP 
 
 - the four `companion_memory_*` tools are registered **only** for the Companion and for
   connections without a role — that is the app itself;
-- `mux_local_worker_dispatch` is registered **only** for the role `local-factory`.
+- `mux_local_worker_dispatch` is registered **only** for the roles `local-factory` and `local-workshop`.
 
 So the app connection and the Companion are offered **67** (everything but the dispatch tool),
-`local-factory` is offered **64** (the dispatch tool, but not the four Companion tools), and any
+`local-factory` and `local-workshop` are offered **64** each (the dispatch tool, but not the four Companion tools), and any
 other role **63**.
 
 **Server:** `http://localhost:{port}/mcp` (port auto-assigned, see `.mcp-connection.md`)
@@ -609,8 +609,9 @@ Health report for a Cyber Factory run: run status, waves, workers, escalation ba
 Local Cyber Factory: starts a fresh local worker (opencode + local model) on one work item
 and returns at once; the architect is woken with one `[local-factory] #N …` line when the
 gate has run. With `accept: true` plus `laufId` and `haeppchen` it marks a green item as
-accepted instead. **Nur für die Rolle `local-factory` registriert** — keine andere Rolle und
-keine rollenlose Verbindung bekommt es.
+accepted instead. **Nur für die Rollen `local-factory` und `local-workshop` registriert** — keine andere Rolle
+und keine rollenlose Verbindung bekommt es. Für `local-workshop` ist `geschuetzteTests` leer
+erlaubt (Routine ohne eigenen Test; `testBefehl` bleibt Pflicht), und `accept` trägt das Urteil.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -630,7 +631,14 @@ with a reason when nothing was accepted (unknown run, item not green-waiting).
 | `nichtZiele` | string[] | dispatch | What stays untouched (may be empty) |
 | `laufId` | string | retry, accept | Returned by the first dispatch; pass it on every later item and retry |
 | `haeppchen` | number | retry, accept | Work item number |
+| `profil` | string | no | Dispatch: model profile from `agent.localWorkerProfiles`; omitted = `agent.localWorkerDefaultProfile` (or `agent.localWorker` as profile `default`) |
 | `accept` | boolean | no | Mark the item as accepted |
+| `ergebnis` | enum | local-workshop, with `accept` | `uebernommen`, `nachgebessert`, `neu-geschnitten`, `selbst-uebernommen` |
+| `kategorie` | enum | local-workshop, with `accept` | `test`, `boilerplate`, `refactor`, `doku`, `ui`, `config`, `logik` |
+| `notiz` | string | `ergebnis=nachgebessert` | What had to be fixed; feeds the Bilanz note. Optional otherwise |
+
+For `local-workshop`, `accept` records the verdict (status `beurteilt`) and appends one line to the
+Bilanz; it also works for an exhausted item. A `beurteilt` item cannot be dispatched again.
 
 ### `mux_ideation_skill_run`
 Run an ideation skill with the current brain as context. Returns the skill markdown for

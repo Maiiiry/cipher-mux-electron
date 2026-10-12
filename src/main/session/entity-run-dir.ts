@@ -16,6 +16,9 @@ import { GLOBAL_WORKSPACE_KEY, workspaceKey } from '../../shared/workspace-key'
 /** Default base for all run directories. */
 export const RUNS_BASE = path.join(os.homedir(), '.config', 'cipher-mux', 'runs')
 
+/** Basis der authored-Entity-Verzeichnisse (dieselbe Wurzel wie `entitiesBase` in entity-registry.ts). */
+export const ENTITIES_BASE = path.join(os.homedir(), '.config', 'cipher-mux', 'entities')
+
 /** Absolute run directory for an (workspace, entity) pair. No disk access. */
 export function resolveRunDir(
   workspaceId: string | null | undefined,

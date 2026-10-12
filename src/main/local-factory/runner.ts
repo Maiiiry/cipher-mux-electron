@@ -5,15 +5,18 @@ import { ulid } from 'ulidx'
 import { validateAuftrag, buildAuftragMd, type AuftragInput } from './auftrag'
 import { decideGate, type GateResult } from './gate'
 import {
-  newLauf, beginVersuch, endVersuch, countWeckruf, markAbgenommen,
+  newLauf, beginVersuch, endVersuch, countWeckruf, markAbgenommen, markBeurteilt,
   loadLauf, saveLauf, abortRunning, MAX_VERSUCHE, type Lauf,
 } from './lauf'
 import { classifyWorker, IDLE_SIGNAL_FILENAME } from './worker-done'
 import {
   runShell, dirtyFiles, headCommit, commitPaths, commitAll, changedSince,
-  checksums, savePatchAndReset, toRepoRelative, isRepoRoot, currentBranch,
+  checksums, savePatchAndReset, toRepoRelative, isRepoRoot, currentBranch, diffStat,
 } from './git-ops'
 import { PROTECTED_PATHS_FILENAME } from '../session/entity-boundaries'
+import { createWorkerLock, type WorkerLock } from './worker-lock'
+import { validateUrteil, buildBilanzZeile, type Urteil } from './bilanz'
+import type { BilanzSink } from './bilanz-sink'
 
 /**
  * Der Läufer (Spec §7). Kein Modell: er startet, wartet, prüft und weckt.
@@ -26,14 +29,23 @@ export interface WorkerHost {
    * Bereitschaft (Ruling R15): null = bereit, sonst der Grund, warum nicht —
    * nicht konfiguriert, skipPermissions aus, Endpunkt antwortet nicht mit 2xx.
    */
-  workerReady(): Promise<string | null>
-  startFreshWorker(projekt: string): Promise<{ runDir: string; sessionId: string }>
+  workerReady(profil?: string): Promise<string | null>
+  /**
+   * Schreibt das aufgelöste Profil ins Run-Verzeichnis, bevor der Adapter es liest.
+   * profil/modell optional, damit Hosts ohne Profile gültig bleiben.
+   */
+  startFreshWorker(
+    projekt: string,
+    profil?: string,
+  ): Promise<{ runDir: string; sessionId: string; profil?: string; modell?: string }>
   sendToWorker(sessionId: string, line: string): Promise<void>
   stopWorker(sessionId: string): Promise<void>
   lastActivityAt(sessionId: string): number
   tokensAt(sessionId: string): { input: number; output: number } | null
-  wakeArchitect(line: string): Promise<void>
+  wakeArchitect(line: string, rolle?: RunnerRolle): Promise<void>
 }
+
+export type RunnerRolle = 'local-factory' | 'local-workshop'
 
 export interface RunnerOpts {
   host: WorkerHost
@@ -47,11 +59,23 @@ export interface RunnerOpts {
   stallMs?: number
   timeoutMs?: number
   testTimeoutMs?: number
+  /** Wer beauftragt. Bestimmt Weckziel, Präfix, Testpflicht, Ausschöpfungstext. Default: local-factory. */
+  rolle?: RunnerRolle
+  /** Sperre „ein Worker pro Workspace“. Default: eine eigene je Läufer, also ohne Wirkung über Läufer hinweg. */
+  workerLock?: WorkerLock
+  /** Schlüssel der Sperre (Workspace). */
+  workspaceKey?: string
+  /** Senke für Urteile (nur local-workshop). Ohne sie bleibt ein Urteil ohne Bilanz-Zeile. */
+  bilanz?: BilanzSink
+  /** Workspace für die Bilanz-Zeile; null = ungebunden. */
+  workspaceId?: string | null
 }
 
 export interface DispatchArgs extends AuftragInput {
   laufId?: string
   haeppchen?: number
+  /** Modellprofil (Spec 2026-10-12 §4.4); fehlt = Standardprofil. */
+  profil?: string
 }
 
 export type DispatchAccepted = { ok: true; laufId: string; nummer: number; versuch: number; laufPfad: string }
@@ -81,9 +105,11 @@ interface Attempt {
 interface GateRecord extends GateResult { testOutput: string }
 
 export class LocalFactoryRunner {
-  private readonly o: Required<Omit<RunnerOpts, 'host' | 'laufDir'>> & Pick<RunnerOpts, 'host' | 'laufDir'>
+  private readonly o: Required<Omit<RunnerOpts, 'host' | 'laufDir' | 'bilanz' | 'workspaceId'>> & Pick<RunnerOpts, 'host' | 'laufDir' | 'bilanz' | 'workspaceId'>
   private running: Promise<void> = Promise.resolve()
   private busy = false
+  /** Laufende Urteile, `${laufId}#${nummer}` — verhindert doppelte Bilanz-Zeilen. */
+  private readonly judging = new Set<string>()
 
   constructor(opts: RunnerOpts) {
     this.o = {
@@ -95,6 +121,9 @@ export class LocalFactoryRunner {
       stallMs: 10 * 60_000,
       timeoutMs: 60 * 60_000,
       testTimeoutMs: 15 * 60_000,
+      rolle: 'local-factory',
+      workerLock: createWorkerLock(),
+      workspaceKey: '__unbound__',
       ...opts,
     }
   }
@@ -127,17 +156,71 @@ export class LocalFactoryRunner {
     return { ok: true }
   }
 
+  /** Urteil des Workshops: Lauf markieren, Bilanz-Zeile schreiben (Spec 2026-10-12 §5). */
+  async judge(laufId: string, nummer: number, u: Partial<Urteil>): Promise<AcceptResult> {
+    const errs = validateUrteil(u)
+    if (errs.length) return { ok: false, error: `Urteil ungültig: ${errs.join('; ')}` }
+    if (!LAUF_ID.test(laufId)) return { ok: false, error: 'laufId ungültig.' }
+    // Vor dem ersten await: zwei gleichzeitige Urteile zum selben Häppchen würden sonst beide
+    // die Prüfung bestehen und zwei Bilanz-Zeilen schreiben.
+    const claim = `${laufId}#${nummer}`
+    if (this.judging.has(claim)) return { ok: false, error: `Urteil zu Häppchen #${nummer} läuft bereits.` }
+    this.judging.add(claim)
+    try {
+      const f = this.laufFile(laufId)
+      const lauf = loadLauf(f)
+      if (!lauf) return { ok: false, error: `Lauf ${laufId} unbekannt.` }
+      const probe = markBeurteilt(lauf, nummer)
+      if (probe === lauf) {
+        const h = lauf.haeppchen.find(x => x.nummer === nummer)
+        return { ok: false, error: h ? `Häppchen #${nummer} ist nicht zu beurteilen (Status ${h.status}).` : `Häppchen #${nummer} gibt es nicht.` }
+      }
+      const h = probe.haeppchen.find(x => x.nummer === nummer)!
+      // „uebernommen“/„nachgebessert“ heißen: das Modell hat geliefert. Ein Häppchen, dessen letzter
+      // Versuch nicht grün war, hat nichts geliefert — die Bilanz würde sonst ein Ergebnis zählen, das es nie gab.
+      if ((u.ergebnis === 'uebernommen' || u.ergebnis === 'nachgebessert') && h.versuche.at(-1)?.verdict !== 'gruen') {
+        return { ok: false, error: `Häppchen #${nummer} war nicht grün: Urteil „${u.ergebnis}“ nicht möglich — neu-geschnitten oder selbst-uebernommen.` }
+      }
+      // Erst die Zeile, dann der Status: wirft das Anhängen, bleibt das Häppchen beurteilbar und ein
+      // Retry ist möglich. Schlimmstenfalls steht eine Zeile da und der Aufruf meldet Fehler — der
+      // Retry schreibt eine zweite sichtbare Zeile; besser als ein Urteil, das nie verbucht werden kann.
+      // Weil `record` echte I/O ist, wird der Status danach auf einem FRISCH geladenen Lauf gesetzt
+      // (ohne await bis zum Speichern): ein `prepare` kann dazwischen ein neues Häppchen gespeichert haben.
+      await this.o.bilanz?.record(buildBilanzZeile(probe, nummer, u as Urteil, {
+        now: new Date(this.o.now()).toISOString(), workspaceId: this.o.workspaceId ?? null, mitTest: h.mitTest ?? true,
+      }))
+      const frisch = loadLauf(f)
+      const next = frisch ? markBeurteilt(frisch, nummer) : null
+      if (!frisch || !next || next === frisch) {
+        const grund = !frisch ? 'Lauf nicht mehr lesbar' : `Status ${frisch.haeppchen.find(x => x.nummer === nummer)?.status ?? 'unbekannt'}`
+        return { ok: false, error: `Bilanz-Zeile geschrieben, Status nicht gesetzt: ${grund}.` }
+      }
+      saveLauf(f, next)
+      return { ok: true }
+    } finally {
+      this.judging.delete(claim)
+    }
+  }
+
+  private get testPflicht(): boolean { return this.o.rolle === 'local-factory' }
+  private get praefix(): string { return `[${this.o.rolle}]` }
+
   private wake(line: string): Promise<void> {
-    return this.o.host.wakeArchitect(oneLine(line))
+    return this.o.host.wakeArchitect(oneLine(line), this.o.rolle)
   }
 
   async dispatch(args: DispatchArgs): Promise<DispatchAccepted | DispatchRejected> {
-    const errs = validateAuftrag(args)
+    const errs = validateAuftrag(args, { testPflicht: this.testPflicht })
     if (errs.length) return { ok: false, error: `Auftrag ungültig: ${errs.join('; ')}` }
     if (args.laufId !== undefined && !LAUF_ID.test(args.laufId)) {
       return { ok: false, error: 'laufId ungültig: nur A-Z, a-z, 0-9, _ und -, höchstens 64 Zeichen.' }
     }
     if (this.busy) return { ok: false, error: 'Es läuft bereits ein Worker. Nacheinander (Spec E2).' }
+    // Vor jeder Datei und jedem await: eine belegte Sperre legt keinen Lauf an und zählt keinen Versuch.
+    const haelt = this.o.workerLock.claim(this.o.workspaceKey, this.o.rolle)
+    if (haelt) {
+      return { ok: false, error: `Nicht bereit: Worker belegt durch ${haelt} — kein Versuch gezählt.` }
+    }
     // Synchron setzen: zwischen Prüfung und Start liegen mehrere awaits (Spec E2).
     this.busy = true
     let res: DispatchAccepted | DispatchRejected
@@ -146,8 +229,14 @@ export class LocalFactoryRunner {
     } catch (err) {
       res = { ok: false, error: `Vorprüfung fehlgeschlagen: ${String(err)}` }
     }
-    if (!res.ok) this.busy = false
+    if (!res.ok) this.release()
     return res
+  }
+
+  /** busy und Workersperre gehören zusammen: nie eines ohne das andere freigeben. */
+  private release(): void {
+    this.busy = false
+    this.o.workerLock.release(this.o.workspaceKey, this.o.rolle)
   }
 
   private async prepare(args: DispatchArgs): Promise<DispatchAccepted | DispatchRejected> {
@@ -178,9 +267,9 @@ export class LocalFactoryRunner {
         }
       }
     }
-    const nichtBereit = await this.o.host.workerReady()
+    const nichtBereit = await this.o.host.workerReady(args.profil)
     if (nichtBereit !== null) {
-      await this.wake(`[local-factory] Nicht bereit: ${nichtBereit} — kein Versuch gezählt.`)
+      await this.wake(`${this.praefix} Nicht bereit: ${nichtBereit} — kein Versuch gezählt.`)
       return { ok: false, error: oneLine(`Nicht bereit: ${nichtBereit}. Kein Versuch gezählt.`) }
     }
 
@@ -204,9 +293,12 @@ export class LocalFactoryRunner {
     const fehlend = prot.filter(f => !fs.existsSync(path.join(projekt, f)))
     if (fehlend.length) return { ok: false, error: `Abnahmetest fehlt: ${fehlend.join(', ')}` }
 
-    const vorher = await runShell(args.testBefehl, projekt, this.o.testTimeoutMs)
-    if (vorher.exitCode === 0) {
-      return { ok: false, error: 'Der Abnahmetest ist vor der Arbeit schon grün — er prüft nichts.' }
+    // Ohne Abnahmetest (Workshop) gibt es nichts, was vorab rot sein müsste.
+    if (prot.length > 0) {
+      const vorher = await runShell(args.testBefehl, projekt, this.o.testTimeoutMs)
+      if (vorher.exitCode === 0) {
+        return { ok: false, error: 'Der Abnahmetest ist vor der Arbeit schon grün — er prüft nichts.' }
+      }
     }
 
     const laufId = args.laufId ?? ulid()
@@ -219,7 +311,7 @@ export class LocalFactoryRunner {
       lauf0 = abortRunning(lauf0)
       saveLauf(laufPfad, lauf0)
     }
-    const begun = beginVersuch(lauf0, { nummer: args.haeppchen, ziel: args.ziel, now: this.o.now() })
+    const begun = beginVersuch(lauf0, { nummer: args.haeppchen, ziel: args.ziel, now: this.o.now(), mitTest: prot.length > 0 })
     if ('error' in begun) return { ok: false, error: begun.error }
 
     const offeneTests = dirty.filter(f => prot.includes(f))
@@ -227,7 +319,18 @@ export class LocalFactoryRunner {
     const base = await headCommit(projekt)
     const branch = branchJetzt
     const sumsBefore = checksums(projekt, prot)
-    saveLauf(laufPfad, begun.lauf)
+    // Frisch laden und ohne await dazwischen speichern: `judge` ist nicht durch busy
+    // geschützt und kann während der awaits oben ein Urteil geschrieben haben. Ein
+    // Speichern des veralteten `begun.lauf` hätte es überschrieben (zweites Urteil, zweite Bilanz-Zeile).
+    // Die frisch geladene Datei kennt das Branch-Upgrade von oben noch nicht (lauf0 wurde nur
+    // im Speicher aufgewertet) — ohne dies ginge es beim Speichern wieder verloren.
+    let basis: Lauf = loadLauf(laufPfad) ?? lauf0
+    if (!basis.branch) basis = { ...basis, branch: branchJetzt }
+    const frisch = beginVersuch(basis, {
+      nummer: args.haeppchen, ziel: args.ziel, now: this.o.now(), mitTest: prot.length > 0,
+    })
+    if ('error' in frisch) return { ok: false, error: frisch.error }
+    saveLauf(laufPfad, frisch.lauf)
 
     // Vorheriges Gate für einen zweiten Versuch — aus der Datei, nicht vom Architekten.
     const prevV = args.haeppchen !== undefined
@@ -245,8 +348,8 @@ export class LocalFactoryRunner {
       args, prot, base, branch, sumsBefore, laufId, laufPfad,
       nummer: begun.nummer, versuch: begun.versuch, vorherigesGate,
     })
-      .catch(err => this.wake(`[local-factory] #${begun.nummer} Läuferfehler: ${String(err)}`).catch(() => {}))
-      .finally(() => { this.busy = false })
+      .catch(err => this.wake(`${this.praefix} #${begun.nummer} Läuferfehler: ${String(err)}`).catch(() => {}))
+      .finally(() => { this.release() })
 
     return { ok: true, laufId, nummer: begun.nummer, versuch: begun.versuch, laufPfad }
   }
@@ -283,7 +386,7 @@ export class LocalFactoryRunner {
   private async runAttemptInner(a: Attempt, started: { sessionId?: string; settled?: boolean }): Promise<void> {
     const { host } = this.o
     const projekt = a.args.projekt
-    const { runDir, sessionId } = await host.startFreshWorker(projekt)
+    const { runDir, sessionId, profil, modell } = await host.startFreshWorker(projekt, a.args.profil)
     started.sessionId = sessionId
 
     fs.writeFileSync(
@@ -335,6 +438,7 @@ export class LocalFactoryRunner {
           checksumsAfter: checksums(projekt, a.prot),
           changedFiles: await changedSince(projekt, a.base),
           protectedFiles: a.prot,
+          testPflicht: this.testPflicht,
         })
 
     const dir = path.dirname(a.laufPfad)
@@ -343,6 +447,7 @@ export class LocalFactoryRunner {
 
     let commit: string | undefined
     let patchPfad: string | undefined
+    let stat: { dateien: number; zeilen: number } | undefined
     if (branchGewechselt) {
       started.settled = true
     } else if (gate.verdict === 'gruen') {
@@ -351,6 +456,8 @@ export class LocalFactoryRunner {
       // Versuch entschieden; ein Fehler in headCommit darf nicht zum Reset führen.
       started.settled = true
       commit = await headCommit(projekt)
+      // Messwert für die Bilanz; fehlt er, fehlt er — der Versuch ist schon entschieden.
+      try { stat = await diffStat(projekt, a.base, commit) } catch { /* */ }
     } else {
       patchPfad = path.join(dir, `versuch-${a.nummer}-${a.versuch}.patch`)
       await savePatchAndReset(projekt, a.base, patchPfad)
@@ -360,20 +467,24 @@ export class LocalFactoryRunner {
     let lauf = loadLauf(a.laufPfad) ?? newLauf(a.laufId, projekt, this.o.now())
     lauf = endVersuch(lauf, a.nummer, {
       verdict: gate.verdict, gatePfad, ...(patchPfad ? { patchPfad } : {}), ...(commit ? { commit } : {}),
+      ...(stat ? { dateien: stat.dateien, diffZeilen: stat.zeilen } : {}),
       ...(tokens ? { tokensAmEnde: tokens } : {}),
+      ...(profil ? { profil } : {}), ...(modell ? { modell } : {}),
     }, this.o.now())
     lauf = countWeckruf(lauf)
     saveLauf(a.laufPfad, lauf)
 
     const h = lauf.haeppchen.find(x => x.nummer === a.nummer)
     // ziel gekappt, damit Gate- bzw. Laufpfad am Ende der Zeile nicht abgeschnitten wird.
-    const kopf = `[local-factory] #${a.nummer} „${oneLine(a.args.ziel, 120)}“`
+    const kopf = `${this.praefix} #${a.nummer} „${oneLine(a.args.ziel, 120)}“`
     const zahl = `Versuch ${a.versuch}/${MAX_VERSUCHE}`
     const line = gate.verdict === 'gruen'
       ? `${kopf}: GRÜN, ${zahl}, Commit ${commit!.slice(0, 8)}, Lauf: ${a.laufPfad}`
       : `${kopf}: ${gate.verdict === 'rot' ? 'ROT' : 'HÄNGT'}, ${zahl}, Gate: ${gatePfad}`
         + (branchGewechselt ? ' — Worker hat den Branch gewechselt, Baum nicht zurückgesetzt' : '')
-        + (h?.status === 'eskaliert' ? ' — ESKALIERT, an den User melden' : '')
+        + (h?.status === 'eskaliert'
+          ? (this.o.rolle === 'local-workshop' ? ' — ausgeschöpft, selbst übernehmen' : ' — ESKALIERT, an den User melden')
+          : '')
     await this.wake(line)
   }
 
