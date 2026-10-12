@@ -23,6 +23,9 @@ export interface Versuch {
   patchPfad?: string
   commit?: string
   tokensAmEnde?: { input: number; output: number }
+  /** Profil und Modell, die der Worker bekam (aus local-profile.json). Spec 2026-10-12 §5. */
+  profil?: string
+  modell?: string
 }
 
 export interface Haeppchen {

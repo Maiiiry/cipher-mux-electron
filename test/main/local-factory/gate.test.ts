@@ -100,3 +100,10 @@ describe('Hilfsfunktionen', () => {
     assert.deepEqual(g, { verdict: 'gruen', reasons: [] })
   })
 })
+
+describe('decideGate ohne Testpflicht', () => {
+  it('testPflicht false: leere Schutzliste und Test grün → grün', () => {
+    assert.equal(decideGate({ workerFinished: true, testExitCode: 0, checksumsBefore: {}, checksumsAfter: {},
+      changedFiles: ['a.ts'], protectedFiles: [], testPflicht: false }).verdict, 'gruen')
+  })
+})

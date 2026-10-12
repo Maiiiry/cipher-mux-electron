@@ -23,6 +23,8 @@ export interface GateInput {
   changedFiles: string[]
   /** Repo-relativ. */
   protectedFiles: string[]
+  /** Default true. Der Workshop darf ohne geschützte Tests arbeiten; der Testbefehl entscheidet dann allein. */
+  testPflicht?: boolean
 }
 
 export interface GateResult {
@@ -41,7 +43,7 @@ export function decideGate(input: GateInput): GateResult {
   const reasons: string[] = []
 
   // Check protected files (empty list is an error condition)
-  if (input.protectedFiles.length === 0) {
+  if (input.protectedFiles.length === 0 && input.testPflicht !== false) {
     reasons.push('Keine geschützten Abnahmetests angegeben.')
     return { verdict: 'rot', reasons }
   }

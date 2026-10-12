@@ -39,8 +39,10 @@ export interface WorkerHost {
   stopWorker(sessionId: string): Promise<void>
   lastActivityAt(sessionId: string): number
   tokensAt(sessionId: string): { input: number; output: number } | null
-  wakeArchitect(line: string): Promise<void>
+  wakeArchitect(line: string, rolle?: RunnerRolle): Promise<void>
 }
+
+export type RunnerRolle = 'local-factory' | 'local-workshop'
 
 export interface RunnerOpts {
   host: WorkerHost
@@ -54,11 +56,15 @@ export interface RunnerOpts {
   stallMs?: number
   timeoutMs?: number
   testTimeoutMs?: number
+  /** Wer beauftragt. Bestimmt Weckziel, Präfix, Testpflicht, Ausschöpfungstext. Default: local-factory. */
+  rolle?: RunnerRolle
 }
 
 export interface DispatchArgs extends AuftragInput {
   laufId?: string
   haeppchen?: number
+  /** Modellprofil (Spec 2026-10-12 §4.4); fehlt = Standardprofil. */
+  profil?: string
 }
 
 export type DispatchAccepted = { ok: true; laufId: string; nummer: number; versuch: number; laufPfad: string }
@@ -102,6 +108,7 @@ export class LocalFactoryRunner {
       stallMs: 10 * 60_000,
       timeoutMs: 60 * 60_000,
       testTimeoutMs: 15 * 60_000,
+      rolle: 'local-factory',
       ...opts,
     }
   }
@@ -134,12 +141,15 @@ export class LocalFactoryRunner {
     return { ok: true }
   }
 
+  private get testPflicht(): boolean { return this.o.rolle === 'local-factory' }
+  private get praefix(): string { return `[${this.o.rolle}]` }
+
   private wake(line: string): Promise<void> {
-    return this.o.host.wakeArchitect(oneLine(line))
+    return this.o.host.wakeArchitect(oneLine(line), this.o.rolle)
   }
 
   async dispatch(args: DispatchArgs): Promise<DispatchAccepted | DispatchRejected> {
-    const errs = validateAuftrag(args)
+    const errs = validateAuftrag(args, { testPflicht: this.testPflicht })
     if (errs.length) return { ok: false, error: `Auftrag ungültig: ${errs.join('; ')}` }
     if (args.laufId !== undefined && !LAUF_ID.test(args.laufId)) {
       return { ok: false, error: 'laufId ungültig: nur A-Z, a-z, 0-9, _ und -, höchstens 64 Zeichen.' }
@@ -185,9 +195,9 @@ export class LocalFactoryRunner {
         }
       }
     }
-    const nichtBereit = await this.o.host.workerReady()
+    const nichtBereit = await this.o.host.workerReady(args.profil)
     if (nichtBereit !== null) {
-      await this.wake(`[local-factory] Nicht bereit: ${nichtBereit} — kein Versuch gezählt.`)
+      await this.wake(`${this.praefix} Nicht bereit: ${nichtBereit} — kein Versuch gezählt.`)
       return { ok: false, error: oneLine(`Nicht bereit: ${nichtBereit}. Kein Versuch gezählt.`) }
     }
 
@@ -211,9 +221,12 @@ export class LocalFactoryRunner {
     const fehlend = prot.filter(f => !fs.existsSync(path.join(projekt, f)))
     if (fehlend.length) return { ok: false, error: `Abnahmetest fehlt: ${fehlend.join(', ')}` }
 
-    const vorher = await runShell(args.testBefehl, projekt, this.o.testTimeoutMs)
-    if (vorher.exitCode === 0) {
-      return { ok: false, error: 'Der Abnahmetest ist vor der Arbeit schon grün — er prüft nichts.' }
+    // Ohne Abnahmetest (Workshop) gibt es nichts, was vorab rot sein müsste.
+    if (prot.length > 0) {
+      const vorher = await runShell(args.testBefehl, projekt, this.o.testTimeoutMs)
+      if (vorher.exitCode === 0) {
+        return { ok: false, error: 'Der Abnahmetest ist vor der Arbeit schon grün — er prüft nichts.' }
+      }
     }
 
     const laufId = args.laufId ?? ulid()
@@ -252,7 +265,7 @@ export class LocalFactoryRunner {
       args, prot, base, branch, sumsBefore, laufId, laufPfad,
       nummer: begun.nummer, versuch: begun.versuch, vorherigesGate,
     })
-      .catch(err => this.wake(`[local-factory] #${begun.nummer} Läuferfehler: ${String(err)}`).catch(() => {}))
+      .catch(err => this.wake(`${this.praefix} #${begun.nummer} Läuferfehler: ${String(err)}`).catch(() => {}))
       .finally(() => { this.busy = false })
 
     return { ok: true, laufId, nummer: begun.nummer, versuch: begun.versuch, laufPfad }
@@ -290,7 +303,7 @@ export class LocalFactoryRunner {
   private async runAttemptInner(a: Attempt, started: { sessionId?: string; settled?: boolean }): Promise<void> {
     const { host } = this.o
     const projekt = a.args.projekt
-    const { runDir, sessionId } = await host.startFreshWorker(projekt)
+    const { runDir, sessionId, profil, modell } = await host.startFreshWorker(projekt, a.args.profil)
     started.sessionId = sessionId
 
     fs.writeFileSync(
@@ -342,6 +355,7 @@ export class LocalFactoryRunner {
           checksumsAfter: checksums(projekt, a.prot),
           changedFiles: await changedSince(projekt, a.base),
           protectedFiles: a.prot,
+          testPflicht: this.testPflicht,
         })
 
     const dir = path.dirname(a.laufPfad)
@@ -368,19 +382,22 @@ export class LocalFactoryRunner {
     lauf = endVersuch(lauf, a.nummer, {
       verdict: gate.verdict, gatePfad, ...(patchPfad ? { patchPfad } : {}), ...(commit ? { commit } : {}),
       ...(tokens ? { tokensAmEnde: tokens } : {}),
+      ...(profil ? { profil } : {}), ...(modell ? { modell } : {}),
     }, this.o.now())
     lauf = countWeckruf(lauf)
     saveLauf(a.laufPfad, lauf)
 
     const h = lauf.haeppchen.find(x => x.nummer === a.nummer)
     // ziel gekappt, damit Gate- bzw. Laufpfad am Ende der Zeile nicht abgeschnitten wird.
-    const kopf = `[local-factory] #${a.nummer} „${oneLine(a.args.ziel, 120)}“`
+    const kopf = `${this.praefix} #${a.nummer} „${oneLine(a.args.ziel, 120)}“`
     const zahl = `Versuch ${a.versuch}/${MAX_VERSUCHE}`
     const line = gate.verdict === 'gruen'
       ? `${kopf}: GRÜN, ${zahl}, Commit ${commit!.slice(0, 8)}, Lauf: ${a.laufPfad}`
       : `${kopf}: ${gate.verdict === 'rot' ? 'ROT' : 'HÄNGT'}, ${zahl}, Gate: ${gatePfad}`
         + (branchGewechselt ? ' — Worker hat den Branch gewechselt, Baum nicht zurückgesetzt' : '')
-        + (h?.status === 'eskaliert' ? ' — ESKALIERT, an den User melden' : '')
+        + (h?.status === 'eskaliert'
+          ? (this.o.rolle === 'local-workshop' ? ' — ausgeschöpft, selbst übernehmen' : ' — ESKALIERT, an den User melden')
+          : '')
     await this.wake(line)
   }
 

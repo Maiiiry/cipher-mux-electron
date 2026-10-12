@@ -70,10 +70,10 @@ export function createWorkerHost(ctx: ToolContext): WorkerHost {
     tokensAt(sessionId) {
       return readUsageFile(BRAND.statusLineDir, sessionId)?.tokens ?? null
     },
-    async wakeArchitect(line) {
-      const target = findEntitySessions(sm.list(), 'local-factory', ws)[0]
+    async wakeArchitect(line, rolle = 'local-factory') {
+      const target = findEntitySessions(sm.list(), rolle, ws)[0]
       if (!target) {
-        console.warn('[local-factory] Architekt nicht gefunden, Weckzeile verloren:', line)
+        console.warn(`[${rolle}] Auftraggeber nicht gefunden, Weckzeile verloren:`, line)
         return
       }
       await submitLine(k => sm.sendKeys(target.id, k), n => sm.sendKey(target.id, n), line)
