@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type { NoteManager } from '../notes/note-manager'
+import type { NoteSearchIndex } from '../notes/note-search-index'
 import { renderBilanzNote, type BilanzZeile } from './bilanz'
 
 export const BILANZ_NOTE_TITLE = 'Local Workshop: Bilanz'
@@ -14,8 +15,16 @@ export interface BilanzSink { record(z: BilanzZeile): Promise<void> }
  * Der Body trägt die einzige Titelzeile: `create` legt den Body unverändert ab
  * (der Titel steht im Frontmatter), `save` liest den Titel aus der ersten
  * `# `-Zeile des Bodys.
+ *
+ * Der Suchindex wird mitgeführt wie bei `mux_notes_create`: die Rolle liest ihre
+ * Bilanz beim Start über `mux_notes_search`, und die fragt den Index, nicht das
+ * Verzeichnis. Ohne das fand die Abnahme am 2026-10-12 die Note nicht.
  */
-export function createBilanzSink(opts: { dir: string; notes?: Pick<NoteManager, 'create' | 'save' | 'read'> }): BilanzSink {
+export function createBilanzSink(opts: {
+  dir: string
+  notes?: Pick<NoteManager, 'create' | 'save' | 'read'>
+  index?: Pick<NoteSearchIndex, 'addOrUpdate'>
+}): BilanzSink {
   const jsonl = path.join(opts.dir, 'bilanz.jsonl')
   const idFile = path.join(opts.dir, 'bilanz-note.json')
   const readAll = (): BilanzZeile[] => {
@@ -40,12 +49,14 @@ export function createBilanzSink(opts: { dir: string; notes?: Pick<NoteManager, 
         let id: string | null = null
         try { id = (JSON.parse(fs.readFileSync(idFile, 'utf-8')) as { id?: string }).id ?? null } catch { /* noch keine */ }
         if (id && (await notes.read(id))) {
-          await notes.save(id, body)
+          const info = await notes.save(id, body)
+          opts.index?.addOrUpdate({ info, body })
           return
         }
         // `entity:local-workshop` ist ein Achsenwert (ENTITY_VALUES), die Note gehört dieser Rolle.
         const created = await notes.create(BILANZ_NOTE_TITLE, body, ['kind:reference', 'entity:local-workshop'])
         fs.writeFileSync(idFile, JSON.stringify({ id: created.id }) + '\n', 'utf-8')
+        opts.index?.addOrUpdate({ info: created, body })
       } catch (err) {
         console.warn('[bilanz] Note nicht aktualisiert:', err)
       }

@@ -74,3 +74,24 @@ describe('BilanzSink — Ausfälle', () => {
     assert.equal(fs.readFileSync(path.join(dir, 'bilanz.jsonl'), 'utf-8').trim().split('\n').length, 1)
   })
 })
+
+/**
+ * Die Rolle liest ihre Bilanz beim Start über `mux_notes_search`, und die Suche
+ * fragt den Suchindex, nicht das Verzeichnis. Gemessen in der Abnahme am
+ * 2026-10-12: Note geschrieben, Suche fand sie nicht — der Lernkreis hatte keine
+ * Quelle. Die Senke muss den Index mitführen, wie `mux_notes_create` es tut.
+ */
+describe('BilanzSink — Suchindex', () => {
+  it('neue und neu geschriebene Note landen im Index, mit aktuellem Body', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bil-'))
+    const notes = fakeNotes()
+    const indexed: { id: string; body: string }[] = []
+    const index = { addOrUpdate: (c: { info: { id: string }; body: string }) => { indexed.push({ id: c.info.id, body: c.body }) } }
+    const s = createBilanzSink({ dir, notes, index })
+    await s.record(zeile(1))
+    await s.record(zeile(2))
+    assert.equal(indexed.length, 2)
+    assert.equal(indexed[0].id, indexed[1].id)
+    assert.match(indexed[1].body, /Stand: 2 Aufträge/)
+  })
+})
