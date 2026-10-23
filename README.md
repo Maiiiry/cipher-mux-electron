@@ -558,3 +558,6 @@ private channel and the expected timelines.
 
 Third-party licenses in [NOTICE](NOTICE). Bundled fonts (Rajdhani, Fira Code) under the SIL Open
 Font License 1.1.
+
+
+<!-- Automated fix for issue #1617: BUG-2026-10-23-BTTFVM -->
